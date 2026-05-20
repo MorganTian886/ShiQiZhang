@@ -9,20 +9,20 @@ export default function BorderPanel({ config, onChange }) {
 
       {/* 六边形尺寸 */}
       <div className={s.section}>
-        <div className={s.title}>六边形尺寸（画布5.2×6cm）</div>
-        <Row label="宽度%">
-          <input type="range" min="20" max="98" step="1"
-            value={config.hexW ?? 90}
+        <div className={s.title}>六边形尺寸（px，导出按此输出）</div>
+        <Row label="宽度">
+          <input type="range" min="200" max="2000" step="10"
+            value={config.hexW ?? 1228}
             onChange={e => set('hexW', +e.target.value)} />
-          <span className={s.val}>{config.hexW ?? 90}%</span>
+          <span className={s.val}>{config.hexW ?? 1228}</span>
         </Row>
-        <Row label="高度%">
-          <input type="range" min="20" max="98" step="1"
-            value={config.hexH ?? 90}
+        <Row label="高度">
+          <input type="range" min="200" max="2000" step="10"
+            value={config.hexH ?? 1417}
             onChange={e => set('hexH', +e.target.value)} />
-          <span className={s.val}>{config.hexH ?? 90}%</span>
+          <span className={s.val}>{config.hexH ?? 1417}</span>
         </Row>
-        <p className={s.hint}>宽/高独立调节，超出部分自动截止于画布边缘</p>
+        <p className={s.hint}>拉宽=六边形变宽，拉高=六边形变高<br/>导出PNG为透明背景六边形</p>
       </div>
 
       {/* 外框 */}
