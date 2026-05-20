@@ -7,34 +7,32 @@ export default function BorderPanel({ config, onChange }) {
   return (
     <div className={s.panel}>
 
-      {/* 比例 */}
+      {/* 画布尺寸 */}
       <div className={s.section}>
-        <div className={s.title}>画布比例（宽 × 高 cm）</div>
-        <div className={s.ratioRow}>
-          <label>
-            <span>宽</span>
-            <input type="number" min="1" max="30" step="0.1"
-              value={config.aspectW ?? 5.2}
-              onChange={e => set('aspectW', parseFloat(e.target.value) || 5.2)} />
-          </label>
-          <span className={s.cross}>×</span>
-          <label>
-            <span>高</span>
-            <input type="number" min="1" max="30" step="0.1"
-              value={config.aspectH ?? 6.0}
-              onChange={e => set('aspectH', parseFloat(e.target.value) || 6.0)} />
-          </label>
-        </div>
-        <p className={s.hint}>导出PNG将按此比例输出</p>
+        <div className={s.title}>画布尺寸（cm）</div>
+        <Row label="宽度">
+          <input type="range" min="2" max="20" step="0.1"
+            value={config.canvasW ?? 5.2}
+            onChange={e => set('canvasW', parseFloat(e.target.value))} />
+          <span className={s.val}>{(config.canvasW ?? 5.2).toFixed(1)}</span>
+        </Row>
+        <Row label="高度">
+          <input type="range" min="2" max="20" step="0.1"
+            value={config.canvasH ?? 6.0}
+            onChange={e => set('canvasH', parseFloat(e.target.value))} />
+          <span className={s.val}>{(config.canvasH ?? 6.0).toFixed(1)}</span>
+        </Row>
+        <p className={s.hint}>导出PNG按300DPI输出，宽/高拉伸六边形</p>
       </div>
 
       {/* 外框 */}
       <div className={s.section}>
         <div className={s.title}>外框</div>
         <Row label="粗细">
-          <input type="range" min="4" max="50" step="1" value={config.outerBorderWidth ?? 18}
+          <input type="range" min="0.5" max="8" step="0.1"
+            value={config.outerBorderWidth ?? 3}
             onChange={e => set('outerBorderWidth', +e.target.value)} />
-          <span className={s.val}>{config.outerBorderWidth ?? 18}</span>
+          <span className={s.val}>{(config.outerBorderWidth ?? 3).toFixed(1)}</span>
         </Row>
         <Row label="颜色">
           <input type="color" value={config.outerBorderColor ?? '#1a1628'}
@@ -46,9 +44,10 @@ export default function BorderPanel({ config, onChange }) {
       <div className={s.section}>
         <div className={s.title}>间距带</div>
         <Row label="宽度">
-          <input type="range" min="0" max="50" step="1" value={config.gapWidth ?? 14}
+          <input type="range" min="0" max="8" step="0.1"
+            value={config.gapWidth ?? 2.5}
             onChange={e => set('gapWidth', +e.target.value)} />
-          <span className={s.val}>{config.gapWidth ?? 14}</span>
+          <span className={s.val}>{(config.gapWidth ?? 2.5).toFixed(1)}</span>
         </Row>
         <Row label="颜色">
           <input type="color" value={config.gapColor ?? '#e8e0d0'}
@@ -60,15 +59,16 @@ export default function BorderPanel({ config, onChange }) {
       <div className={s.section}>
         <div className={s.title}>内框</div>
         <Row label="粗细">
-          <input type="range" min="2" max="30" step="1" value={config.innerBorderWidth ?? 7}
+          <input type="range" min="0.2" max="5" step="0.1"
+            value={config.innerBorderWidth ?? 1.2}
             onChange={e => set('innerBorderWidth', +e.target.value)} />
-          <span className={s.val}>{config.innerBorderWidth ?? 7}</span>
+          <span className={s.val}>{(config.innerBorderWidth ?? 1.2).toFixed(1)}</span>
         </Row>
         <Row label="纯色">
-          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+          <label className={s.toggle}>
             <input type="checkbox" checked={!!config.innerBorderSolid}
               onChange={e => set('innerBorderSolid', e.target.checked)} />
-            <span style={{fontSize:11,color:'var(--text-secondary)'}}>关闭渐变</span>
+            <span>关闭渐变</span>
           </label>
         </Row>
         <Row label="颜色1">
@@ -87,12 +87,14 @@ export default function BorderPanel({ config, onChange }) {
       <div className={s.section}>
         <div className={s.title}>内细线</div>
         <Row label="粗细">
-          <input type="range" min="0" max="6" step="0.5" value={config.innerLineWidth ?? 1.5}
+          <input type="range" min="0" max="2" step="0.1"
+            value={config.innerLineWidth ?? 0.3}
             onChange={e => set('innerLineWidth', +e.target.value)} />
-          <span className={s.val}>{config.innerLineWidth ?? 1.5}</span>
+          <span className={s.val}>{(config.innerLineWidth ?? 0.3).toFixed(1)}</span>
         </Row>
         <Row label="颜色">
-          <input type="color" value={config.innerLineColor?.startsWith('rgba') ? '#c8a96e' : (config.innerLineColor ?? '#c8a96e')}
+          <input type="color"
+            value={config.innerLineColor?.startsWith('rgba') ? '#c8a96e' : (config.innerLineColor ?? '#c8a96e')}
             onChange={e => set('innerLineColor', e.target.value)} />
         </Row>
       </div>

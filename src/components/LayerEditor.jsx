@@ -23,6 +23,7 @@ const BG_TYPES = [
 ]
 
 const DECOR_TYPES = [
+  { value: 'image',         label: '🖼 自定义图片' },
   { value: 'circle_lines',  label: '同心圆环' },
   { value: 'cross_lines',   label: '放射线条' },
   { value: 'corner_marks',  label: '六角标线' },
@@ -146,10 +147,19 @@ export default function LayerEditor({ layer, onChange }) {
             {DECOR_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Row>
-        <Row label="颜色">
-          <input type="color" value={layer.color?.startsWith('rgba') ? '#c8a96e' : (layer.color ?? '#c8a96e')}
-            onChange={e => set('color', e.target.value)} />
-        </Row>
+        {layer.decorType === 'image' ? (
+          <Row label="图片">
+            <button className={s.uploadBtn} onClick={() => imgRef.current.click()}>
+              {layer.image ? '✓ 已上传，替换' : '+ 导入装饰图片'}
+            </button>
+            <input ref={imgRef} type="file" accept="image/*" hidden onChange={handleImg} />
+          </Row>
+        ) : (
+          <Row label="颜色">
+            <input type="color" value={layer.color?.startsWith('rgba') ? '#c8a96e' : (layer.color ?? '#c8a96e')}
+              onChange={e => set('color', e.target.value)} />
+          </Row>
+        )}
       </>}
 
       {/* ── 人物 ── */}
