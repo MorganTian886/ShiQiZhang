@@ -23,11 +23,21 @@ const BG_TYPES = [
 ]
 
 const DECOR_TYPES = [
-  { value: 'circle_lines',  label: '同心圆环' },
-  { value: 'cross_lines',   label: '放射线条' },
-  { value: 'corner_marks',  label: '六角标线' },
-  { value: 'hex_rings',     label: '六边形环' },
-  { value: 'image',         label: '🖼 自定义图片' },
+  { group: '── 基础形状 ──' },
+  { value: 'circle',      label: '⭕ 圆形 / 椭圆' },
+  { value: 'rect',        label: '▬ 矩形' },
+  { value: 'round_rect',  label: '▢ 圆角矩形' },
+  { value: 'triangle',    label: '△ 三角形' },
+  { value: 'diamond',     label: '◇ 菱形' },
+  { value: 'line',        label: '─ 直线' },
+  { group: '── 装饰形状 ──' },
+  { value: 'hexagon',     label: '⬡ 六边形' },
+  { value: 'star5',       label: '★ 五角星' },
+  { value: 'star6',       label: '✦ 六角星' },
+  { value: 'cross',       label: '✚ 十字' },
+  { value: 'arrow',       label: '➤ 箭头' },
+  { value: 'shield',      label: '🛡 盾牌' },
+  { value: 'moon',        label: '🌙 月牙' },
 ]
 
 const FONTS = [
@@ -158,29 +168,56 @@ export default function LayerEditor({ layer, onChange }) {
         )}
       </>}
 
-      {/* ── 装饰 ── */}
+      {/* ── 装饰几何 ── */}
       {layer.type === 'decoration' && <>
-        <Row label="类型">
-          <select value={layer.decorType ?? 'circle_lines'}
+        <p style={{fontSize:10,color:'var(--text-dim)',padding:'0 14px 4px'}}>
+          📌 在预览区拖动 · 拖角点缩放 · 拖金色点旋转
+        </p>
+        <Row label="形状">
+          <select value={layer.decorType ?? 'circle'}
             onChange={e => set('decorType', e.target.value)}>
-            {DECOR_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {DECOR_TYPES.map((t,i) =>
+              t.group ? <option key={i} disabled>{t.group}</option>
+                      : <option key={t.value} value={t.value}>{t.label}</option>
+            )}
           </select>
         </Row>
-        {layer.decorType === 'image' ? (
-          <Row label="图片">
-            <button className={s.uploadBtn} onClick={() => imgRef.current.click()}>
-              {layer.image ? '✓ 已上传，替换' : '+ 导入装饰图片'}
-            </button>
-            <input ref={imgRef} type="file" accept="image/*" hidden onChange={handleImg} />
-          </Row>
-        ) : (
-          <Row label="颜色">
-            <input type="color"
-              value={layer.color?.startsWith('rgba') ? '#c8a96e' : (layer.color ?? '#c8a96e')}
-              onChange={e => set('color', e.target.value)} />
-            <span className={s.hexLabel}>{layer.color?.startsWith('rgba') ? '#c8a96e' : (layer.color ?? '#c8a96e')}</span>
+        <Row label="填充色">
+          <input type="color" value={layer.shapeFill ?? '#c8a96e'}
+            onChange={e => set('shapeFill', e.target.value)} />
+          <span className={s.hexLabel}>{layer.shapeFill ?? '#c8a96e'}</span>
+        </Row>
+        <Row label="仅描边">
+          <label className={s.toggle}>
+            <input type="checkbox" checked={layer.shapeFilled === false}
+              onChange={e => set('shapeFilled', !e.target.checked)} />
+            <span>空心</span>
+          </label>
+        </Row>
+        {layer.shapeFilled === false && (
+          <Row label="线宽">
+            <input type="range" min="1" max="20" step="1" value={layer.shapeLineW ?? 3}
+              onChange={e => set('shapeLineW', +e.target.value)} />
+            <span className={s.val}>{layer.shapeLineW ?? 3}</span>
           </Row>
         )}
+        {layer.shapeFilled !== false && (
+          <Row label="描边色">
+            <input type="color" value={layer.shapeStroke ?? '#ffffff'}
+              onChange={e => set('shapeStroke', e.target.value)} />
+            <Row label="描边宽">
+              <input type="range" min="0" max="16" step="1" value={layer.shapeLineW ?? 0}
+                onChange={e => set('shapeLineW', +e.target.value)} />
+              <span className={s.val}>{layer.shapeLineW ?? 0}</span>
+            </Row>
+          </Row>
+        )}
+        <Row label="旋转">
+          <input type="range" min="-3.14159" max="3.14159" step="0.01"
+            value={layer.shapeRot ?? 0}
+            onChange={e => set('shapeRot', +e.target.value)} />
+          <span className={s.val}>{Math.round((layer.shapeRot??0)*180/Math.PI)}°</span>
+        </Row>
       </>}
 
       {/* ── 人物 ── */}
