@@ -3,3 +3,33 @@
 .val { width: 32px; text-align: right; color: var(--gold); font-size: 11px; flex-shrink: 0; }
 input[type="range"] { flex: 1; accent-color: var(--gold); }
 input[type="color"] { width: 36px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--bg-card); cursor: pointer; }
+
+.section { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.ratioRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+}
+.ratioRow label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ratioRow input[type="number"] {
+  width: 60px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: center;
+}
+.ratioRow input[type="number"]:focus { outline: none; border-color: var(--gold-dim); }
+.cross { color: var(--text-dim); font-size: 14px; }
+.hint { font-size: 10px; color: var(--text-dim); padding: 0 14px 4px; }

@@ -1,20 +1,23 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 
-// 5.2cm x 6cm @ 300dpi = 614 x 709px
-// 正六边形：宽高比 = 1 : (2/√3) ≈ 1 : 1.1547
-// 但印刷尺寸是5.2×6cm，所以画布本身是矩形，六边形居中适配
-const CW = 1228  // 614 * 2
-const CH = 1418  // 709 * 2
+// 基础边长（300dpi，长边约为1418px）
+const BASE = 1418
 
-// 正六边形：尖顶朝上，外接圆半径R
-// 宽 = R√3，高 = 2R
-// 我们让六边形尽量填满矩形画布（留边距）
-// 宽方向：R√3 = CW * 0.9  => R = CW*0.9/√3
-// 高方向：2R = CH * 0.9   => R = CH*0.9/2
-// 取小值保证正六边形且不超出
-function getHexR() {
-  const Rw = (CW * 0.9) / Math.sqrt(3)
-  const Rh = (CH * 0.9) / 2
+// 根据宽高比计算画布实际尺寸
+function getCanvasSize(config) {
+  const aw = config?.aspectW ?? 5.2
+  const ah = config?.aspectH ?? 6.0
+  if (aw >= ah) {
+    return { cw: BASE, ch: Math.round(BASE * ah / aw) }
+  } else {
+    return { cw: Math.round(BASE * aw / ah), ch: BASE }
+  }
+}
+
+// 正六边形外接圆半径R（尖顶朝上：宽=R√3，高=2R）
+function getHexR(cw, ch) {
+  const Rw = (cw * 0.9) / Math.sqrt(3)
+  const Rh = (ch * 0.9) / 2
   return Math.min(Rw, Rh)
 }
 
@@ -42,13 +45,16 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const { cw: CW, ch: CH } = getCanvasSize(config)
+    canvas.width = CW
+    canvas.height = CH
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, CW, CH)
 
     const cx = CW / 2
     const cy = CH / 2
     const rot = -Math.PI / 6  // 尖顶朝上
-    const R = getHexR()
+    const R = getHexR(CW, CH)
 
     // 边框参数（单位px，SCALE已含在CW/CH里）
     const outerW   = (config.outerBorderWidth  ?? 18) * 2
@@ -108,16 +114,22 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     ctx.fill()
     ctx.restore()
 
-    // 金框
+    // 内框（可配色，默认金色渐变）
     ctx.save()
     tracePath(ctx, hexPoints(cx, cy, R2, rot))
-    const goldGrad = ctx.createLinearGradient(cx - R2, cy - R2, cx + R2, cy + R2)
-    goldGrad.addColorStop(0,   '#f5e090')
-    goldGrad.addColorStop(0.25,'#c8a96e')
-    goldGrad.addColorStop(0.5, '#edd880')
-    goldGrad.addColorStop(0.75,'#9a7235')
-    goldGrad.addColorStop(1,   '#d4b060')
-    ctx.fillStyle = goldGrad
+    const innerColor1 = config.innerBorderColor1 ?? '#f5e090'
+    const innerColor2 = config.innerBorderColor2 ?? '#9a7235'
+    const useGradient = !config.innerBorderSolid
+    if (useGradient) {
+      const goldGrad = ctx.createLinearGradient(cx - R2, cy - R2, cx + R2, cy + R2)
+      goldGrad.addColorStop(0,    innerColor1)
+      goldGrad.addColorStop(0.35, config.innerBorderColor1 ?? '#c8a96e')
+      goldGrad.addColorStop(0.65, innerColor2)
+      goldGrad.addColorStop(1,    innerColor1)
+      ctx.fillStyle = goldGrad
+    } else {
+      ctx.fillStyle = innerColor1
+    }
     ctx.fill()
     ctx.globalCompositeOperation = 'destination-out'
     tracePath(ctx, hexPoints(cx, cy, R3, rot))
@@ -127,22 +139,12 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     // 内细线
     ctx.save()
     tracePath(ctx, hexPoints(cx, cy, R4, rot))
-    ctx.strokeStyle = 'rgba(200,169,110,0.45)'
+    ctx.strokeStyle = config.innerLineColor ?? 'rgba(200,169,110,0.45)'
     ctx.lineWidth = innerLineW
     ctx.stroke()
     ctx.restore()
 
-    // 角点装饰钉
-    const dotR = (R1 + R2) / 2
-    for (let i = 0; i < 6; i++) {
-      const a = (Math.PI / 3) * i + rot
-      const x = cx + dotR * Math.cos(a)
-      const y = cy + dotR * Math.sin(a)
-      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2)
-      ctx.fillStyle = '#c8a96e'; ctx.fill()
-      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2)
-      ctx.fillStyle = '#f0d890'; ctx.fill()
-    }
+
 
     // ── 4. 文字图层（最顶层）──
     for (const layer of sorted) {
@@ -463,14 +465,18 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
 
   useEffect(() => { draw() }, [draw])
 
+  const { cw: dispW, ch: dispH } = getCanvasSize(config)
+  const maxDisplay = 390
+  const dispScale = Math.min(maxDisplay / dispW, maxDisplay / dispH)
+
   return (
     <canvas
       ref={canvasRef}
-      width={CW}
-      height={CH}
+      width={dispW}
+      height={dispH}
       style={{
-        width: CW * 0.26,
-        height: CH * 0.26,
+        width: dispW * dispScale,
+        height: dispH * dispScale,
         filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.9))',
       }}
     />
@@ -478,4 +484,4 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
 })
 
 export default BadgeCanvas
-export { CW, CH }
+export { getCanvasSize }
