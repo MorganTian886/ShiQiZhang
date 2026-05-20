@@ -1,11 +1,6 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 
-// 基准分辨率：5.2cm @ 300dpi x2倍 ≈ 1228px宽
-// 画布 = 六边形包围盒 + padding，背景透明
-// 六边形尖顶朝上：宽 = rx*√3，高 = ry*2
-// 用户控制 hexW(px) hexH(px)，画布自动适配
-
-const PADDING = 20  // 画布四周留白（px），防裁切
+const PADDING = 24
 
 function hexPoints(cx, cy, rx, ry, rot = -Math.PI / 6) {
   return Array.from({ length: 6 }, (_, i) => {
@@ -20,6 +15,26 @@ function tracePath(ctx, pts) {
   ctx.closePath()
 }
 
+// 画环形：外六边形填色，然后用"evenodd"规则挖掉内六边形
+function drawRing(ctx, cx, cy, outerRx, outerRy, innerRx, innerRy, rot, color) {
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  // 外圈（顺时针）
+  hexPoints(cx, cy, outerRx, outerRy, rot).forEach(([x, y], i) =>
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+  )
+  ctx.closePath()
+  // 内圈（逆时针，形成孔洞）
+  const inner = hexPoints(cx, cy, innerRx, innerRy, rot)
+  inner.reverse().forEach(([x, y], i) =>
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+  )
+  ctx.closePath()
+  ctx.fill('evenodd')
+  ctx.restore()
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y)
@@ -29,7 +44,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x,y,x+r,y,r); ctx.closePath()
 }
 
-function safeR(v) { return Math.max(1, v || 1) }
+function safeR(v) { return Math.max(2, v || 2) }
 
 function mulberry32(seed) {
   let a = seed
@@ -52,8 +67,6 @@ function blendHex(c1, c2, t) {
   } catch { return c1 }
 }
 
-// 由用户设定的六边形宽高(px)计算rx/ry
-// 尖顶朝上: 实际宽 = rx*√3, 实际高 = ry*2
 function getRxRy(hexW, hexH) {
   return {
     rx: safeR(hexW / Math.sqrt(3)),
@@ -64,13 +77,9 @@ function getRxRy(hexW, hexH) {
 const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
   const canvasRef = useRef(null)
 
-  // 六边形目标尺寸（px，2倍渲染）
-  // 默认: 宽=5.2cm@300dpi*2=1228, 高=6cm@300dpi*2=1417
   const hexW = config.hexW ?? 1228
   const hexH = config.hexH ?? 1417
   const { rx: baseRx, ry: baseRy } = getRxRy(hexW, hexH)
-
-  // 画布 = 六边形包围盒 + PADDING
   const CW = Math.round(hexW + PADDING * 2)
   const CH = Math.round(hexH + PADDING * 2)
   const cx = CW / 2
@@ -87,27 +96,24 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     canvas.width = CW
     canvas.height = CH
     const ctx = canvas.getContext('2d')
-    // 透明背景
     ctx.clearRect(0, 0, CW, CH)
 
-    // 边框参数（px）
     const outerW     = safeR(config.outerBorderWidth  ?? 30)
     const gapW       = safeR(config.gapWidth          ?? 24)
     const innerW     = safeR(config.innerBorderWidth   ?? 12)
-    const innerLineW = config.innerLineWidth ?? 3
+    const innerLineW = Math.max(0, config.innerLineWidth ?? 3)
 
-    // 各层半径（向内缩进）
-    const R0 = { rx: baseRx,                         ry: baseRy }
-    const R1 = { rx: safeR(R0.rx - outerW),          ry: safeR(R0.ry - outerW) }
-    const R2 = { rx: safeR(R1.rx - gapW),            ry: safeR(R1.ry - gapW) }
-    const R3 = { rx: safeR(R2.rx - innerW),          ry: safeR(R2.ry - innerW) }
-    const R4 = { rx: safeR(R3.rx - innerLineW*2),    ry: safeR(R3.ry - innerLineW*2) }
+    const R0 = { rx: baseRx,                      ry: baseRy }
+    const R1 = { rx: safeR(R0.rx - outerW),       ry: safeR(R0.ry - outerW) }
+    const R2 = { rx: safeR(R1.rx - gapW),         ry: safeR(R1.ry - gapW) }
+    const R3 = { rx: safeR(R2.rx - innerW),       ry: safeR(R2.ry - innerW) }
+    const R4 = { rx: safeR(R3.rx - innerLineW*2), ry: safeR(R3.ry - innerLineW*2) }
 
     const sorted = [...(layers || [])].sort((a, b) => a.zIndex - b.zIndex)
 
-    // ── 1. 背景（clip到最外框R0，而不是矩形）──
+    // ── 1. 内容区背景（clip 到 R3 内容区）──
     ctx.save()
-    tracePath(ctx, hexPoints(cx, cy, R0.rx, R0.ry, rot))
+    tracePath(ctx, hexPoints(cx, cy, R3.rx, R3.ry, rot))
     ctx.clip()
     for (const layer of sorted) {
       if (!layer.visible || layer.type !== 'background') continue
@@ -115,7 +121,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     }
     ctx.restore()
 
-    // ── 2. 装饰（clip到内容区R3）──
+    // ── 2. 装饰（clip 到 R3）──
     ctx.save()
     tracePath(ctx, hexPoints(cx, cy, R3.rx, R3.ry, rot))
     ctx.clip()
@@ -125,37 +131,34 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     }
     ctx.restore()
 
-    // ── 3. 人物（破框，不clip）──
-    for (const layer of sorted) {
-      if (!layer.visible || layer.type !== 'character') continue
-      drawCharacter(ctx, cx, cy, R0, R3, layer)
-    }
-
-    // ── 4. 边框层（盖在人物破框上）──
-
-    // 最外框
+    // ── 3. 人物（破框：clip 到 R0，但超出 R3 的部分可见）──
     ctx.save()
     tracePath(ctx, hexPoints(cx, cy, R0.rx, R0.ry, rot))
-    ctx.fillStyle = config.outerBorderColor ?? '#1a1628'
-    ctx.fill()
-    ctx.globalCompositeOperation = 'destination-out'
-    tracePath(ctx, hexPoints(cx, cy, R1.rx, R1.ry, rot))
-    ctx.fill()
+    ctx.clip()
+    for (const layer of sorted) {
+      if (!layer.visible || layer.type !== 'character') continue
+      drawCharacter(ctx, cx, cy, R3, layer)
+    }
     ctx.restore()
 
-    // gap带
-    ctx.save()
-    tracePath(ctx, hexPoints(cx, cy, R1.rx, R1.ry, rot))
-    ctx.fillStyle = config.gapColor ?? '#e8e0d0'
-    ctx.fill()
-    ctx.globalCompositeOperation = 'destination-out'
-    tracePath(ctx, hexPoints(cx, cy, R2.rx, R2.ry, rot))
-    ctx.fill()
-    ctx.restore()
+    // ── 4. 边框（用 evenodd 环形，不用 destination-out）──
 
-    // 内框
+    // 最外框环
+    drawRing(ctx, cx, cy, R0.rx, R0.ry, R1.rx, R1.ry, rot,
+      config.outerBorderColor ?? '#1a1628')
+
+    // gap 带
+    drawRing(ctx, cx, cy, R1.rx, R1.ry, R2.rx, R2.ry, rot,
+      config.gapColor ?? '#e8e0d0')
+
+    // 内框（渐变）
     ctx.save()
-    tracePath(ctx, hexPoints(cx, cy, R2.rx, R2.ry, rot))
+    // 先填内框区域
+    ctx.beginPath()
+    hexPoints(cx, cy, R2.rx, R2.ry, rot).forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y))
+    ctx.closePath()
+    hexPoints(cx, cy, R3.rx, R3.ry, rot).reverse().forEach(([x,y],i)=> i===0?ctx.moveTo(x,y):ctx.lineTo(x,y))
+    ctx.closePath()
     const ic1 = config.innerBorderColor1 ?? '#f5e090'
     const ic2 = config.innerBorderColor2 ?? '#9a7235'
     if (config.innerBorderSolid) {
@@ -165,31 +168,32 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       g.addColorStop(0, ic1); g.addColorStop(0.4, ic2); g.addColorStop(1, ic1)
       ctx.fillStyle = g
     }
-    ctx.fill()
-    ctx.globalCompositeOperation = 'destination-out'
-    tracePath(ctx, hexPoints(cx, cy, R3.rx, R3.ry, rot))
-    ctx.fill()
+    ctx.fill('evenodd')
     ctx.restore()
 
     // 内细线
     if (innerLineW > 0 && R4.rx > 4) {
       ctx.save()
       tracePath(ctx, hexPoints(cx, cy, R4.rx, R4.ry, rot))
-      ctx.strokeStyle = config.innerLineColor ?? 'rgba(200,169,110,0.45)'
+      ctx.strokeStyle = config.innerLineColor ?? 'rgba(200,169,110,0.5)'
       ctx.lineWidth = innerLineW
       ctx.stroke()
       ctx.restore()
     }
 
-    // ── 5. 文字（最顶层）──
+    // ── 5. 文字（最顶层，clip 到 R0 防止溢出画布外）──
+    ctx.save()
+    tracePath(ctx, hexPoints(cx, cy, R0.rx, R0.ry, rot))
+    ctx.clip()
     for (const layer of sorted) {
       if (!layer.visible || layer.type !== 'text') continue
       drawText(ctx, cx, cy, R3, layer)
     }
+    ctx.restore()
 
   }, [config, layers, CW, CH, cx, cy, baseRx, baseRy, rot])
 
-  // ──── 背景（填满六边形R0区域） ────
+  // ──────────── 背景 ────────────
   function drawBg(ctx, cx, cy, cw, ch, R, rot, layer) {
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
@@ -198,23 +202,25 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     const c3 = layer.color3 ?? null
     const angle = ((layer.gradientAngle ?? 135) * Math.PI) / 180
     const rx = safeR(R.rx), ry = safeR(R.ry)
-    const fill = (s) => { ctx.fillStyle = s; ctx.fillRect(0, 0, cw, ch) }
+    const fill = (style) => { ctx.fillStyle = style; ctx.fillRect(0, 0, cw, ch) }
 
-    switch (layer.bgType ?? 'arknights') {
-      case 'solid': fill(c1); break
+    switch (layer.bgType ?? 'solid') {
+      case 'solid':
+        fill(c1); break
+
       case 'linear': case 'linear_diagonal': case 'linear_h': case 'linear_v': {
         const a = layer.bgType==='linear_h' ? 0 : layer.bgType==='linear_v' ? Math.PI/2 : angle
-        const dx=Math.cos(a)*rx, dy=Math.sin(a)*ry
-        const g = ctx.createLinearGradient(cx-dx,cy-dy,cx+dx,cy+dy)
-        c3?(g.addColorStop(0,c1),g.addColorStop(.5,c3),g.addColorStop(1,c2))
-          :(g.addColorStop(0,c1),g.addColorStop(1,c2))
+        const dx = Math.cos(a)*rx, dy = Math.sin(a)*ry
+        const g = ctx.createLinearGradient(cx-dx, cy-dy, cx+dx, cy+dy)
+        c3 ? (g.addColorStop(0,c1),g.addColorStop(.5,c3),g.addColorStop(1,c2))
+           : (g.addColorStop(0,c1),g.addColorStop(1,c2))
         fill(g); break
       }
       case 'linear_hard': {
         const sp = layer.hardSplit ?? 0.5
-        const g = ctx.createLinearGradient(cx,cy-ry,cx,cy+ry)
+        const g = ctx.createLinearGradient(cx, cy-ry, cx, cy+ry)
         g.addColorStop(0,c1); g.addColorStop(Math.max(0,sp-.001),c1)
-        g.addColorStop(sp,c2); g.addColorStop(1,c2)
+        g.addColorStop(Math.min(1,sp),c2); g.addColorStop(1,c2)
         fill(g); break
       }
       case 'radial': {
@@ -228,16 +234,16 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       }
       case 'radial_hex': {
         fill(c2)
-        for(let i=12;i>=0;i--){
-          const t=i/12
-          tracePath(ctx,hexPoints(cx,cy,rx*t,ry*t,rot))
-          ctx.fillStyle=blendHex(c1,c2,1-t); ctx.fill()
+        for (let i=12; i>=0; i--) {
+          const t = i/12
+          tracePath(ctx, hexPoints(cx,cy,rx*t,ry*t,rot))
+          ctx.fillStyle = blendHex(c1,c2,1-t); ctx.fill()
         }
         break
       }
       case 'conical': {
-        for(let i=0;i<360;i++){
-          const a1=Math.PI*2*i/360,a2=Math.PI*2*(i+1)/360
+        for (let i=0; i<360; i++) {
+          const a1=Math.PI*2*i/360, a2=Math.PI*2*(i+1)/360
           ctx.beginPath(); ctx.moveTo(cx,cy)
           ctx.arc(cx,cy,Math.max(rx,ry)*1.5,a1,a2); ctx.closePath()
           ctx.fillStyle=blendHex(c1,c2,i/360); ctx.fill()
@@ -246,13 +252,13 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       }
       case 'pattern_hex': {
         fill(c1)
-        const hs=layer.patternSize??20
+        const hs = layer.patternSize ?? 20
         ctx.strokeStyle=c2; ctx.lineWidth=1.5
-        for(let row=-2;row<ch/hs+2;row++){
-          for(let col=-2;col<cw/(hs*1.732)+2;col++){
-            const hx=col*hs*1.732+(row%2)*hs*.866,hy=row*hs*1.5
+        for (let row=-2; row<ch/hs+2; row++) {
+          for (let col=-2; col<cw/(hs*1.732)+2; col++) {
+            const hx=col*hs*1.732+(row%2)*hs*.866, hy=row*hs*1.5
             ctx.beginPath()
-            for(let k=0;k<6;k++){
+            for (let k=0;k<6;k++) {
               const ka=(Math.PI/3)*k-Math.PI/6
               k===0?ctx.moveTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))
                    :ctx.lineTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))
@@ -264,8 +270,8 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       }
       case 'pattern_stripe': {
         fill(c1)
-        const sz=layer.patternSize??20; ctx.fillStyle=c2
-        for(let x=-ch;x<cw+ch;x+=sz*2){
+        const sz = layer.patternSize ?? 20; ctx.fillStyle=c2
+        for (let x=-ch; x<cw+ch; x+=sz*2) {
           ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+sz,0)
           ctx.lineTo(x+sz-ch,ch); ctx.lineTo(x-ch,ch)
           ctx.closePath(); ctx.fill()
@@ -274,10 +280,12 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       }
       case 'stars': {
         fill(c1)
-        const rng=mulberry32(42)
-        for(let i=0;i<140;i++){
-          ctx.beginPath(); ctx.arc(rng()*cw,rng()*ch,rng()*1.8+.4,0,Math.PI*2)
-          ctx.fillStyle=`rgba(255,255,255,${(rng()*.5+.4).toFixed(2)})`; ctx.fill()
+        const rng = mulberry32(42)
+        for (let i=0; i<140; i++) {
+          ctx.beginPath()
+          ctx.arc(rng()*cw, rng()*ch, rng()*1.8+.4, 0, Math.PI*2)
+          ctx.fillStyle=`rgba(255,255,255,${(rng()*.5+.4).toFixed(2)})`
+          ctx.fill()
         }
         break
       }
@@ -287,11 +295,11 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
         fill(g)
         ctx.strokeStyle='rgba(100,160,255,0.07)'; ctx.lineWidth=1
         const hs=40
-        for(let row=-2;row<ch/hs+2;row++){
-          for(let col=-2;col<cw/(hs*1.732)+2;col++){
-            const hx=col*hs*1.732+(row%2)*hs*.866,hy=row*hs*1.5
+        for (let row=-2; row<ch/hs+2; row++) {
+          for (let col=-2; col<cw/(hs*1.732)+2; col++) {
+            const hx=col*hs*1.732+(row%2)*hs*.866, hy=row*hs*1.5
             ctx.beginPath()
-            for(let k=0;k<6;k++){
+            for (let k=0;k<6;k++) {
               const ka=(Math.PI/3)*k-Math.PI/6
               k===0?ctx.moveTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))
                    :ctx.lineTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))
@@ -305,9 +313,9 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
         break
       }
       case 'image': {
-        if(layer.image){
+        if (layer.image) {
           const img=layer.image
-          const sc=Math.max(cw/img.naturalWidth,ch/img.naturalHeight)
+          const sc=Math.max(cw/img.naturalWidth, ch/img.naturalHeight)
           ctx.drawImage(img,(cw-img.naturalWidth*sc)/2,(ch-img.naturalHeight*sc)/2,
                         img.naturalWidth*sc,img.naturalHeight*sc)
         }
@@ -317,49 +325,57 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     ctx.restore()
   }
 
-  // ──── 装饰 ────
+  // ──────────── 装饰 ────────────
   function drawDecor(ctx, cx, cy, R, rot, layer) {
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
-    const color = layer.color ?? 'rgba(200,169,110,0.4)'
+    const color = layer.color ?? '#c8a96e'
     const rx = R.rx, ry = R.ry
 
     if (layer.decorType === 'image' && layer.image) {
-      const img = layer.image
-      const sc = Math.max(rx*2/img.naturalWidth, ry*2/img.naturalHeight)
-      ctx.drawImage(img,cx-img.naturalWidth*sc/2,cy-img.naturalHeight*sc/2,
-                    img.naturalWidth*sc,img.naturalHeight*sc)
+      const img=layer.image
+      const sc=Math.max(rx*2/img.naturalWidth, ry*2/img.naturalHeight)
+      ctx.drawImage(img, cx-img.naturalWidth*sc/2, cy-img.naturalHeight*sc/2,
+                    img.naturalWidth*sc, img.naturalHeight*sc)
       ctx.restore(); return
     }
-    switch (layer.decorType) {
+
+    ctx.strokeStyle = color
+    switch (layer.decorType ?? 'circle_lines') {
       case 'circle_lines':
-        ctx.strokeStyle=color; ctx.lineWidth=2
-        for(let r=.25;r<.92;r+=.18){ctx.beginPath();ctx.ellipse(cx,cy,rx*r,ry*r,0,0,Math.PI*2);ctx.stroke()}
+        ctx.lineWidth = 2
+        for (let r=.25; r<.92; r+=.18) {
+          ctx.beginPath(); ctx.ellipse(cx,cy,rx*r,ry*r,0,0,Math.PI*2); ctx.stroke()
+        }
         break
       case 'cross_lines':
-        ctx.strokeStyle=color; ctx.lineWidth=2
-        for(let i=0;i<12;i++){
-          const a=(Math.PI/6)*i; ctx.beginPath(); ctx.moveTo(cx,cy)
-          ctx.lineTo(cx+rx*Math.cos(a),cy+ry*Math.sin(a)); ctx.stroke()
+        ctx.lineWidth = 2
+        for (let i=0; i<12; i++) {
+          const a=(Math.PI/6)*i
+          ctx.beginPath(); ctx.moveTo(cx,cy)
+          ctx.lineTo(cx+rx*Math.cos(a), cy+ry*Math.sin(a)); ctx.stroke()
         }
         break
       case 'corner_marks':
-        ctx.strokeStyle=color; ctx.lineWidth=3
-        hexPoints(cx,cy,rx*.9,ry*.9,rot).forEach(([x,y])=>{
-          const dx=x-cx,dy=y-cy,len=Math.hypot(dx,dy),nx=dx/len,ny=dy/len
+        ctx.lineWidth = 3
+        hexPoints(cx,cy,rx*.9,ry*.9,rot).forEach(([x,y]) => {
+          const dx=x-cx, dy=y-cy, len=Math.hypot(dx,dy)
+          const nx=dx/len, ny=dy/len
           ctx.beginPath(); ctx.moveTo(x-nx*28,y-ny*28); ctx.lineTo(x+nx*8,y+ny*8); ctx.stroke()
         })
         break
       case 'hex_rings':
-        ctx.strokeStyle=color; ctx.lineWidth=2
-        for(let r=.3;r<.95;r+=.2){tracePath(ctx,hexPoints(cx,cy,rx*r,ry*r,rot));ctx.stroke()}
+        ctx.lineWidth = 2
+        for (let r=.3; r<.95; r+=.2) {
+          tracePath(ctx, hexPoints(cx,cy,rx*r,ry*r,rot)); ctx.stroke()
+        }
         break
     }
     ctx.restore()
   }
 
-  // ──── 人物（破框：可超出R3，但被外框R0遮住画布外）────
-  function drawCharacter(ctx, cx, cy, R0, R3, layer) {
+  // ──────────── 人物 ────────────
+  function drawCharacter(ctx, cx, cy, R3, layer) {
     if (!layer.image) return
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
@@ -367,13 +383,13 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     const scale = layer.scale ?? 1
     const ox = (layer.offsetX ?? 0) * 2
     const oy = (layer.offsetY ?? 0) * 2
-    const fitH = R3.ry * 2 * 1.1 * scale
+    const fitH = R3.ry * 2 * 1.15 * scale
     const fitW = (img.naturalWidth / img.naturalHeight) * fitH
     ctx.drawImage(img, cx-fitW/2+ox, cy-fitH/2+oy, fitW, fitH)
     ctx.restore()
   }
 
-  // ──── 文字（自由文本框，可移动，支持多行）────
+  // ──────────── 文字 ────────────
   function drawText(ctx, cx, cy, R, layer) {
     if (!layer.text) return
     ctx.save()
@@ -386,14 +402,11 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     ctx.fillStyle = layer.color ?? '#e8c97a'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    // 支持多行（换行符分割）
     const lines = layer.text.split('\n')
     const lineH = fs * 1.3
     const totalH = lines.length * lineH
     lines.forEach((line, i) => {
-      const lx = cx + ox
-      const ly = cy + oy - totalH / 2 + lineH * i + lineH / 2
-      ctx.fillText(line, lx, ly)
+      ctx.fillText(line, cx + ox, cy + oy - totalH/2 + lineH*i + lineH/2)
     })
     ctx.restore()
   }
