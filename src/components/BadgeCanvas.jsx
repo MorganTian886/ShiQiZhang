@@ -73,9 +73,9 @@ function ptInBox(pt, layer, defaultX, defaultY) {
 }
 
 // ─── 绘制几何图形 ───
-function drawShape(ctx, layer, isSelected) {
-  const x   = layer.shapeX ?? 0
-  const y   = layer.shapeY ?? 0
+function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
+  const x   = layer.shapeX ?? defaultX
+  const y   = layer.shapeY ?? defaultY
   const w   = layer.shapeW ?? 200
   const h   = layer.shapeH ?? 200
   const rot = layer.shapeRot ?? 0
@@ -221,7 +221,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     ctx.save(); tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot)); ctx.clip()
     for(const l of sorted){
       if(!l.visible||l.type!=='decoration') continue
-      drawShape(ctx,l,!!(l.id===selectedId))
+      drawShape(ctx,l,!!(l.id===selectedId),cx,cy)
     }
     ctx.restore()
 

@@ -39,7 +39,7 @@ export default function App() {
     const zIndex = Math.max(...layers.map(l => l.zIndex), 0) + 1
     const defaults = {
       background: { bgType: 'radial', color1: '#1a1a2e', color2: '#0a0818' },
-      decoration:  { decorType: 'circle', shapeFill: '#c8a96e', shapeFilled: true, shapeLineW: 0, shapeStroke: 'transparent', shapeX: null, shapeY: null, shapeW: 200, shapeH: 200, shapeRot: 0 },
+      decoration:  { decorType: 'circle', shapeFill: '#c8a96e', shapeFilled: true, shapeLineW: 0, shapeStroke: 'transparent', shapeX: 638, shapeY: 732, shapeW: 200, shapeH: 200, shapeRot: 0 },
       character:   { scale: 1, offsetX: 0, offsetY: 0 },
       text:        { text: '输入文字', font: 'Cinzel Decorative', fontSize: 24, color: '#e8c97a', bold: false, textX: 638, textY: 732, textW: 400, textH: 100, textRot: 0 },
     }
