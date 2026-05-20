@@ -22,20 +22,50 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.shiqizhang.app",
-    "productName": "士气章设计工具",
+    "appId": "com.rhoxane.shiqizhang",
+    "productName": "蚀刻章设计工具",
+    "copyright": "Copyright © 2025 Rhoxane",
+    "asar": true,
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "package.json"
     ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
     },
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "蚀刻章设计工具"
     }
   }
 }
