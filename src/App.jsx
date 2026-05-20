@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import BadgeCanvas from './components/BadgeCanvas'
 import LayerPanel from './components/LayerPanel'
 import LayerEditor from './components/LayerEditor'
@@ -68,6 +68,63 @@ export default function App() {
     }
   }
 
+  // ── 自动保存 ──
+  // 图片对象不能JSON序列化，保存时跳过，恢复时提示重新上传
+  const serializeLayers = (layers) => layers.map(l => {
+    const copy = { ...l }
+    if (copy.image) { copy.image = '__IMAGE_PLACEHOLDER__'; copy._hasImage = true }
+    return copy
+  })
+
+  const doAutoSave = useCallback(async () => {
+    if (!window.electronAPI) return
+    try {
+      const projectJson = JSON.stringify({ layers: serializeLayers(layers), config }, null, 2)
+      const previewDataUrl = badgeRef.current?.exportPNG?.() ?? null
+      const result = await window.electronAPI.autoSave({ projectJson, previewDataUrl })
+      if (result.success) {
+        setAutoSaveStatus(`已自动保存 ${new Date().toLocaleTimeString()}`)
+        setTimeout(() => setAutoSaveStatus(''), 3000)
+      }
+    } catch (e) { console.error('autosave failed', e) }
+  }, [layers, config])
+
+  const [autoSaveStatus, setAutoSaveStatus] = useState('')
+
+  // 每 60 秒自动保存一次，有变化才触发
+  useEffect(() => {
+    const timer = setInterval(doAutoSave, 60000)
+    return () => clearInterval(timer)
+  }, [doAutoSave])
+
+  // 内容变化后 5 秒防抖保存
+  const debounceRef = useRef(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(doAutoSave, 5000)
+    return () => clearTimeout(debounceRef.current)
+  }, [layers, config])
+
+  // 启动时尝试读取自动保存
+  useEffect(() => {
+    if (!window.electronAPI) return
+    window.electronAPI.loadAutosave().then(result => {
+      if (!result.success) return
+      try {
+        const { layers: savedLayers, config: savedConfig } = JSON.parse(result.data)
+        // 过滤掉有图片占位符的图层（图片需重新上传）
+        const restored = savedLayers.map(l => ({ ...l, image: undefined }))
+        const hasImages = savedLayers.some(l => l._hasImage)
+        setLayers(restored)
+        if (savedConfig) setConfig(savedConfig)
+        const msg = hasImages
+          ? '已恢复上次保存（含图片的图层需重新上传图片）'
+          : '已恢复上次保存'
+        showToast(msg, 'success')
+      } catch(e) { console.error('restore failed', e) }
+    })
+  }, [])
+
   const selectedLayer = layers.find(l => l.id === selectedId) ?? null
 
   return (
@@ -109,6 +166,7 @@ export default function App() {
       </main>
 
       {toast && <div className={`${s.toast} ${s[toast.type]}`}>{toast.msg}</div>}
+      {autoSaveStatus && <div className={s.autoSaveStatus}>{autoSaveStatus}</div>}
     </div>
   )
 }
