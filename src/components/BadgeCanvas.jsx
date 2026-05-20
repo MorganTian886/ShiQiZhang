@@ -1,31 +1,35 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 
-// 5.2cm x 6cm @ 300dpi
-const PRINT_W = 614
-const PRINT_H = 709
-const SCALE = 2
-const CW = PRINT_W * SCALE
-const CH = PRINT_H * SCALE
+// 5.2cm x 6cm @ 300dpi = 614 x 709px
+// 正六边形：宽高比 = 1 : (2/√3) ≈ 1 : 1.1547
+// 但印刷尺寸是5.2×6cm，所以画布本身是矩形，六边形居中适配
+const CW = 1228  // 614 * 2
+const CH = 1418  // 709 * 2
 
-function hexPoints(cx, cy, rx, ry, rot = -Math.PI / 6) {
-  const pts = []
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 3) * i + rot
-    pts.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)])
-  }
-  return pts
+// 正六边形：尖顶朝上，外接圆半径R
+// 宽 = R√3，高 = 2R
+// 我们让六边形尽量填满矩形画布（留边距）
+// 宽方向：R√3 = CW * 0.9  => R = CW*0.9/√3
+// 高方向：2R = CH * 0.9   => R = CH*0.9/2
+// 取小值保证正六边形且不超出
+function getHexR() {
+  const Rw = (CW * 0.9) / Math.sqrt(3)
+  const Rh = (CH * 0.9) / 2
+  return Math.min(Rw, Rh)
 }
 
-function drawHex(ctx, cx, cy, rx, ry, rot = -Math.PI / 6) {
-  const pts = hexPoints(cx, cy, rx, ry, rot)
+// 正六边形顶点（尖顶朝上，rot=-π/6）
+function hexPoints(cx, cy, R, rot = -Math.PI / 6) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i + rot
+    return [cx + R * Math.cos(a), cy + R * Math.sin(a)]
+  })
+}
+
+function tracePath(ctx, pts) {
   ctx.beginPath()
   pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))
   ctx.closePath()
-}
-
-function clipHex(ctx, cx, cy, rx, ry, rot) {
-  drawHex(ctx, cx, cy, rx, ry, rot)
-  ctx.clip()
 }
 
 const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
@@ -43,227 +47,210 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
 
     const cx = CW / 2
     const cy = CH / 2
-    const rot = -Math.PI / 6
+    const rot = -Math.PI / 6  // 尖顶朝上
+    const R = getHexR()
 
-    // 边框参数（全部可配置）
-    const outerW = (config.outerBorderWidth ?? 16) * SCALE / 2
-    const gapW = (config.gapWidth ?? 12) * SCALE / 2
-    const innerW = (config.innerBorderWidth ?? 6) * SCALE / 2
-    const innerLineW = (config.innerLineWidth ?? 2) * SCALE / 2
+    // 边框参数（单位px，SCALE已含在CW/CH里）
+    const outerW   = (config.outerBorderWidth  ?? 18) * 2
+    const gapW     = (config.gapWidth          ?? 14) * 2
+    const innerW   = (config.innerBorderWidth   ?? 7)  * 2
+    const innerLineW = (config.innerLineWidth   ?? 1.5) * 2
 
-    // 从外到内的半径
-    const outerRX = CW * 0.472
-    const outerRY = CH * 0.472
-    const gapStartRX = outerRX - outerW
-    const gapStartRY = outerRY - outerW
-    const innerBorderRX = gapStartRX - gapW
-    const innerBorderRY = gapStartRY - gapW
-    const contentRX = innerBorderRX - innerW
-    const contentRY = innerBorderRY - innerW
-    const innerLineRX = contentRX - 10
-    const innerLineRY = contentRY - 10
+    // 各层半径
+    const R0 = R                        // 最外框外边缘
+    const R1 = R0 - outerW              // 最外框内边缘 = gap外边缘
+    const R2 = R1 - gapW               // gap内边缘 = 金框外边缘
+    const R3 = R2 - innerW             // 金框内边缘 = 内容区外边缘
+    const R4 = R3 - innerLineW * 3     // 内细线
 
     const outerColor = config.outerBorderColor ?? '#1a1628'
-    const gapColor = config.gapColor ?? '#e8e0d0'
-    const innerBorderColor = config.innerBorderColor ?? '#c8a96e'
+    const gapColor   = config.gapColor         ?? '#e8e0d0'
 
-    // ── 排序图层（按z-index）──
-    const sortedLayers = [...(layers || [])].sort((a, b) => a.zIndex - b.zIndex)
+    // ── 排序图层 ──
+    const sorted = [...(layers || [])].sort((a, b) => a.zIndex - b.zIndex)
 
-    // ── 先画"内容区以下"的图层（背景、装饰等，被内框clip）──
+    // ── 1. 内容区（clip到R3，画背景+装饰）──
     ctx.save()
-    drawHex(ctx, cx, cy, contentRX, contentRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R3, rot))
     ctx.clip()
-
-    for (const layer of sortedLayers) {
+    for (const layer of sorted) {
       if (!layer.visible) continue
-      if (layer.type === 'background') drawBackgroundLayer(ctx, cx, cy, CW, CH, layer)
-      if (layer.type === 'decoration') drawDecorationLayer(ctx, cx, cy, contentRX, contentRY, rot, layer)
-      if (layer.type === 'text' && layer.insideFrame) drawTextLayer(ctx, cx, cy, contentRX, contentRY, layer)
+      if (layer.type === 'background')  drawBg(ctx, cx, cy, CW, CH, R3, rot, layer)
+      if (layer.type === 'decoration')  drawDecor(ctx, cx, cy, R3, rot, layer)
     }
     ctx.restore()
 
-    // ── 人物图层（破框：不clip内框，但后续外框会盖住边缘）──
-    for (const layer of sortedLayers) {
-      if (!layer.visible) continue
-      if (layer.type === 'character') drawCharacterLayer(ctx, cx, cy, contentRX, contentRY, layer)
+    // ── 2. 人物（破框：不clip内容区）──
+    for (const layer of sorted) {
+      if (!layer.visible || layer.type !== 'character') continue
+      drawCharacter(ctx, cx, cy, R3, layer)
     }
 
-    // ── 画边框（遮住人物破框的边缘部分）──
+    // ── 3. 绘制边框（盖在人物破框部分上方）──
 
-    // 1. 最外六边形深色框
+    // 最外框（深色）
     ctx.save()
-    drawHex(ctx, cx, cy, outerRX, outerRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R0, rot))
     ctx.fillStyle = outerColor
     ctx.fill()
-    // 挖空内部（gap区域开始）
     ctx.globalCompositeOperation = 'destination-out'
-    drawHex(ctx, cx, cy, gapStartRX, gapStartRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R1, rot))
     ctx.fill()
     ctx.restore()
 
-    // 2. gap区域（白色/浅色带）
+    // gap带（白/浅色）
     ctx.save()
-    drawHex(ctx, cx, cy, gapStartRX, gapStartRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R1, rot))
     ctx.fillStyle = gapColor
     ctx.fill()
     ctx.globalCompositeOperation = 'destination-out'
-    drawHex(ctx, cx, cy, innerBorderRX, innerBorderRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R2, rot))
     ctx.fill()
     ctx.restore()
 
-    // 3. 内金框
+    // 金框
     ctx.save()
-    drawHex(ctx, cx, cy, innerBorderRX, innerBorderRY, rot)
-    const goldGrad = ctx.createLinearGradient(cx - innerBorderRX, cy - innerBorderRY, cx + innerBorderRX, cy + innerBorderRY)
-    goldGrad.addColorStop(0, '#f0d890')
-    goldGrad.addColorStop(0.25, '#c8a96e')
-    goldGrad.addColorStop(0.5, '#e8c97a')
-    goldGrad.addColorStop(0.75, '#a07840')
-    goldGrad.addColorStop(1, '#d4b060')
+    tracePath(ctx, hexPoints(cx, cy, R2, rot))
+    const goldGrad = ctx.createLinearGradient(cx - R2, cy - R2, cx + R2, cy + R2)
+    goldGrad.addColorStop(0,   '#f5e090')
+    goldGrad.addColorStop(0.25,'#c8a96e')
+    goldGrad.addColorStop(0.5, '#edd880')
+    goldGrad.addColorStop(0.75,'#9a7235')
+    goldGrad.addColorStop(1,   '#d4b060')
     ctx.fillStyle = goldGrad
     ctx.fill()
     ctx.globalCompositeOperation = 'destination-out'
-    drawHex(ctx, cx, cy, contentRX, contentRY, rot)
+    tracePath(ctx, hexPoints(cx, cy, R3, rot))
     ctx.fill()
     ctx.restore()
 
-    // 4. 内框内细线
+    // 内细线
     ctx.save()
-    drawHex(ctx, cx, cy, innerLineRX, innerLineRY, rot)
-    ctx.strokeStyle = 'rgba(200,169,110,0.5)'
+    tracePath(ctx, hexPoints(cx, cy, R4, rot))
+    ctx.strokeStyle = 'rgba(200,169,110,0.45)'
     ctx.lineWidth = innerLineW
     ctx.stroke()
     ctx.restore()
 
-    // 5. 角点装饰圆钉
-    const dotRX = (gapStartRX + innerBorderRX) / 2
-    const dotRY = (gapStartRY + innerBorderRY) / 2
+    // 角点装饰钉
+    const dotR = (R1 + R2) / 2
     for (let i = 0; i < 6; i++) {
       const a = (Math.PI / 3) * i + rot
-      const x = cx + dotRX * Math.cos(a)
-      const y = cy + dotRY * Math.sin(a)
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(x, y, 6, 0, Math.PI * 2)
-      ctx.fillStyle = '#c8a96e'
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(x, y, 3.5, 0, Math.PI * 2)
-      ctx.fillStyle = '#f0d890'
-      ctx.fill()
-      ctx.restore()
+      const x = cx + dotR * Math.cos(a)
+      const y = cy + dotR * Math.sin(a)
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2)
+      ctx.fillStyle = '#c8a96e'; ctx.fill()
+      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2)
+      ctx.fillStyle = '#f0d890'; ctx.fill()
     }
 
-    // ── 文字图层（在边框上方，不在内框内的）──
-    for (const layer of sortedLayers) {
-      if (!layer.visible) continue
-      if (layer.type === 'text' && !layer.insideFrame) drawTextLayer(ctx, cx, cy, contentRX, contentRY, layer)
-      if (layer.type === 'text' && layer.position === 'badge') drawBadgeText(ctx, cx, cy, contentRY, innerBorderRY, layer)
+    // ── 4. 文字图层（最顶层）──
+    for (const layer of sorted) {
+      if (!layer.visible || layer.type !== 'text') continue
+      drawText(ctx, cx, cy, R3, layer)
     }
 
   }, [config, layers])
 
-  // ── 背景图层 ──
-  function drawBackgroundLayer(ctx, cx, cy, cw, ch, layer) {
+  // ─────────────────── 背景渲染 ───────────────────
+  function drawBg(ctx, cx, cy, cw, ch, R, rot, layer) {
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
+    const c1 = layer.color1 ?? '#1a1a2e'
+    const c2 = layer.color2 ?? '#0a0818'
+    const c3 = layer.color3 ?? null
+    const angle = ((layer.gradientAngle ?? 135) * Math.PI) / 180
+
     switch (layer.bgType) {
-      case 'gradient': {
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cw * 0.5)
-        g.addColorStop(0, layer.color1 ?? '#2a1f4e')
-        g.addColorStop(1, layer.color2 ?? '#0a0818')
-        ctx.fillStyle = g
-        ctx.fillRect(0, 0, cw, ch)
-        break
-      }
-      case 'linear': {
-        const g = ctx.createLinearGradient(0, 0, cw, ch)
-        g.addColorStop(0, layer.color1 ?? '#1a1a2e')
-        g.addColorStop(1, layer.color2 ?? '#16213e')
-        ctx.fillStyle = g
-        ctx.fillRect(0, 0, cw, ch)
-        break
-      }
       case 'solid': {
-        ctx.fillStyle = layer.color1 ?? '#1a1a2e'
+        ctx.fillStyle = c1
         ctx.fillRect(0, 0, cw, ch)
         break
       }
-      case 'image': {
-        if (layer.image) {
-          const img = layer.image
-          const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight)
-          const iw = img.naturalWidth * scale
-          const ih = img.naturalHeight * scale
-          ctx.drawImage(img, (cw - iw) / 2, (ch - ih) / 2, iw, ih)
+      case 'linear_diagonal':
+      case 'linear_h':
+      case 'linear_v':
+      case 'linear': {
+        const a = layer.bgType === 'linear_h' ? 0
+                : layer.bgType === 'linear_v' ? Math.PI / 2
+                : angle
+        const dx = Math.cos(a) * R, dy = Math.sin(a) * R
+        const g = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy)
+        if (c3) {
+          g.addColorStop(0, c1); g.addColorStop(0.5, c3); g.addColorStop(1, c2)
+        } else {
+          g.addColorStop(0, c1); g.addColorStop(1, c2)
         }
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, cw, ch)
         break
       }
-      case 'stars': {
-        ctx.fillStyle = layer.color1 ?? '#0a0818'
+      case 'linear_hard': {
+        // 硬边断层
+        const split = (layer.hardSplit ?? 0.5)
+        const g = ctx.createLinearGradient(cx, cy - R, cx, cy + R)
+        g.addColorStop(0, c1)
+        g.addColorStop(split - 0.001, c1)
+        g.addColorStop(split, c2)
+        g.addColorStop(1, c2)
+        ctx.fillStyle = g
         ctx.fillRect(0, 0, cw, ch)
-        // 星星
-        const rng = mulberry32(42)
-        for (let i = 0; i < 120; i++) {
-          const x = rng() * cw
-          const y = rng() * ch
-          const r = rng() * 1.5 + 0.5
-          const a = rng() * 0.6 + 0.4
-          ctx.beginPath()
-          ctx.arc(x, y, r, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(255,255,255,${a})`
+        break
+      }
+      case 'radial': {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R)
+        g.addColorStop(0, c1); g.addColorStop(1, c2)
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, cw, ch)
+        break
+      }
+      case 'radial_offcenter': {
+        const ox = (layer.radialOX ?? 0) * R / 100
+        const oy = (layer.radialOY ?? -40) * R / 100
+        const g = ctx.createRadialGradient(cx + ox, cy + oy, 0, cx, cy, R * 1.2)
+        g.addColorStop(0, c1); g.addColorStop(1, c2)
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, cw, ch)
+        break
+      }
+      case 'radial_hex': {
+        // 六边形向心层叠
+        ctx.fillStyle = c2
+        ctx.fillRect(0, 0, cw, ch)
+        const steps = 12
+        for (let i = steps; i >= 0; i--) {
+          const t = i / steps
+          const r = R * t
+          const alpha = 1 - t
+          tracePath(ctx, hexPoints(cx, cy, r, rot))
+          ctx.fillStyle = blendHex(c1, c2, 1 - t)
           ctx.fill()
         }
         break
       }
-      case 'grid': {
-        ctx.fillStyle = layer.color1 ?? '#0d1117'
-        ctx.fillRect(0, 0, cw, ch)
-        const gridSize = 28
-        ctx.strokeStyle = layer.color2 ?? 'rgba(100,180,255,0.12)'
-        ctx.lineWidth = 1
-        for (let x = 0; x < cw; x += gridSize) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ch); ctx.stroke()
-        }
-        for (let y = 0; y < ch; y += gridSize) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke()
-        }
-        break
-      }
-      case 'rays': {
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, cw * 0.5)
-        g.addColorStop(0, layer.color1 ?? '#1e1040')
-        g.addColorStop(1, layer.color2 ?? '#080612')
-        ctx.fillStyle = g
-        ctx.fillRect(0, 0, cw, ch)
-        const rCount = 20
-        for (let i = 0; i < rCount; i++) {
-          const a = (Math.PI * 2 / rCount) * i
-          const rg = ctx.createLinearGradient(cx, cy, cx + Math.cos(a) * cw, cy + Math.sin(a) * ch)
-          rg.addColorStop(0, 'rgba(200,169,110,0.12)')
-          rg.addColorStop(1, 'rgba(200,169,110,0)')
+      case 'conical': {
+        // 角度/雷达渐变（分段模拟）
+        const steps = 360
+        for (let i = 0; i < steps; i++) {
+          const a1 = (Math.PI * 2 * i) / steps
+          const a2 = (Math.PI * 2 * (i + 1)) / steps
+          const t = i / steps
           ctx.beginPath()
           ctx.moveTo(cx, cy)
-          ctx.arc(cx, cy, cw, a - Math.PI / rCount, a + Math.PI / rCount)
+          ctx.arc(cx, cy, R * 1.5, a1, a2)
           ctx.closePath()
-          ctx.fillStyle = rg
+          ctx.fillStyle = blendHex(c1, c2, t)
           ctx.fill()
         }
         break
       }
-      case 'arknights': {
-        // 明日方舟风格：深蓝黑+科技线
-        const g = ctx.createRadialGradient(cx, cy * 0.7, 0, cx, cy, cw * 0.55)
-        g.addColorStop(0, '#1a2640')
-        g.addColorStop(0.5, '#0d1520')
-        g.addColorStop(1, '#060c14')
-        ctx.fillStyle = g
+      case 'pattern_hex': {
+        // 蜂巢网格色块
+        ctx.fillStyle = c1
         ctx.fillRect(0, 0, cw, ch)
-        // 六边形蜂巢网格
-        ctx.strokeStyle = 'rgba(100,160,255,0.07)'
-        ctx.lineWidth = 1
-        const hs = 20
+        const hs = (layer.patternSize ?? 16) * 2
+        ctx.strokeStyle = c2
+        ctx.lineWidth = 1.5
         for (let row = -2; row < ch / hs + 2; row++) {
           for (let col = -2; col < cw / (hs * 1.732) + 2; col++) {
             const hx = col * hs * 1.732 + (row % 2) * hs * 0.866
@@ -271,197 +258,207 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
             ctx.beginPath()
             for (let k = 0; k < 6; k++) {
               const ka = (Math.PI / 3) * k - Math.PI / 6
-              const kx = hx + hs * Math.cos(ka)
-              const ky = hy + hs * Math.sin(ka)
-              k === 0 ? ctx.moveTo(kx, ky) : ctx.lineTo(kx, ky)
+              k === 0 ? ctx.moveTo(hx + hs * Math.cos(ka), hy + hs * Math.sin(ka))
+                      : ctx.lineTo(hx + hs * Math.cos(ka), hy + hs * Math.sin(ka))
             }
             ctx.closePath()
             ctx.stroke()
           }
         }
-        // 中心光晕
-        const halo = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy * 0.85, cw * 0.35)
-        halo.addColorStop(0, 'rgba(80,160,255,0.18)')
-        halo.addColorStop(1, 'rgba(80,160,255,0)')
-        ctx.fillStyle = halo
+        break
+      }
+      case 'pattern_stripe': {
+        ctx.fillStyle = c1
         ctx.fillRect(0, 0, cw, ch)
+        const sz = (layer.patternSize ?? 12) * 2
+        ctx.fillStyle = c2
+        for (let x = -ch; x < cw + ch; x += sz * 2) {
+          ctx.beginPath()
+          ctx.moveTo(x, 0); ctx.lineTo(x + sz, 0)
+          ctx.lineTo(x + sz - ch, ch); ctx.lineTo(x - ch, ch)
+          ctx.closePath(); ctx.fill()
+        }
+        break
+      }
+      case 'stars': {
+        ctx.fillStyle = c1
+        ctx.fillRect(0, 0, cw, ch)
+        const rng = mulberry32(42)
+        for (let i = 0; i < 140; i++) {
+          const x = rng() * cw, y = rng() * ch
+          const r = rng() * 1.8 + 0.4
+          ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(255,255,255,${(rng() * 0.5 + 0.4).toFixed(2)})`
+          ctx.fill()
+        }
+        break
+      }
+      case 'arknights': {
+        const g = ctx.createRadialGradient(cx, cy * 0.75, 0, cx, cy, R * 1.1)
+        g.addColorStop(0, '#1a2640'); g.addColorStop(0.6, '#0d1520'); g.addColorStop(1, '#060c14')
+        ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch)
+        ctx.strokeStyle = 'rgba(100,160,255,0.07)'; ctx.lineWidth = 1
+        const hs = 20 * 2
+        for (let row = -2; row < ch / hs + 2; row++) {
+          for (let col = -2; col < cw / (hs * 1.732) + 2; col++) {
+            const hx = col * hs * 1.732 + (row % 2) * hs * 0.866
+            const hy = row * hs * 1.5
+            ctx.beginPath()
+            for (let k = 0; k < 6; k++) {
+              const ka = (Math.PI / 3) * k - Math.PI / 6
+              k === 0 ? ctx.moveTo(hx + hs * Math.cos(ka), hy + hs * Math.sin(ka))
+                      : ctx.lineTo(hx + hs * Math.cos(ka), hy + hs * Math.sin(ka))
+            }
+            ctx.closePath(); ctx.stroke()
+          }
+        }
+        const halo = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy * 0.85, R * 0.6)
+        halo.addColorStop(0, 'rgba(80,160,255,0.2)'); halo.addColorStop(1, 'rgba(80,160,255,0)')
+        ctx.fillStyle = halo; ctx.fillRect(0, 0, cw, ch)
+        break
+      }
+      case 'image': {
+        if (layer.image) {
+          const img = layer.image
+          const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight)
+          const iw = img.naturalWidth * scale, ih = img.naturalHeight * scale
+          ctx.drawImage(img, (cw - iw) / 2, (ch - ih) / 2, iw, ih)
+        }
         break
       }
     }
     ctx.restore()
   }
 
-  // ── 装饰图层 ──
-  function drawDecorationLayer(ctx, cx, cy, rx, ry, rot, layer) {
+  // ─────────────────── 装饰渲染 ───────────────────
+  function drawDecor(ctx, cx, cy, R, rot, layer) {
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
+    const color = layer.color ?? 'rgba(200,169,110,0.4)'
     switch (layer.decorType) {
-      case 'laurel': {
-        // 月桂叶简化版
-        drawLaurel(ctx, cx, cy, rx * 0.88, ry * 0.88, layer.color ?? '#c8a96e')
-        break
-      }
       case 'circle_lines': {
-        ctx.strokeStyle = layer.color ?? 'rgba(200,169,110,0.3)'
-        ctx.lineWidth = 1
-        for (let r = rx * 0.3; r < rx * 0.85; r += 30) {
-          ctx.beginPath()
-          ctx.arc(cx, cy, r, 0, Math.PI * 2)
-          ctx.stroke()
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5
+        for (let r = R * 0.25; r < R * 0.92; r += R * 0.18) {
+          ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
         }
         break
       }
       case 'cross_lines': {
-        ctx.strokeStyle = layer.color ?? 'rgba(100,160,255,0.2)'
-        ctx.lineWidth = 1
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5
         for (let i = 0; i < 12; i++) {
           const a = (Math.PI / 6) * i
-          ctx.beginPath()
-          ctx.moveTo(cx, cy)
-          ctx.lineTo(cx + rx * Math.cos(a), cy + ry * Math.sin(a))
-          ctx.stroke()
+          ctx.beginPath(); ctx.moveTo(cx, cy)
+          ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a)); ctx.stroke()
         }
         break
       }
       case 'corner_marks': {
-        // 六角顶点装饰线
-        ctx.strokeStyle = layer.color ?? 'rgba(200,169,110,0.5)'
-        ctx.lineWidth = 2
-        const pts = hexPoints(cx, cy, rx * 0.9, ry * 0.9, rot)
-        pts.forEach(([x, y]) => {
-          const dx = x - cx, dy = y - cy
-          const len = Math.sqrt(dx * dx + dy * dy)
+        ctx.strokeStyle = color; ctx.lineWidth = 2
+        hexPoints(cx, cy, R * 0.92, rot).forEach(([x, y]) => {
+          const dx = x - cx, dy = y - cy, len = Math.hypot(dx, dy)
           const nx = dx / len, ny = dy / len
           ctx.beginPath()
-          ctx.moveTo(x - nx * 20, y - ny * 20)
-          ctx.lineTo(x + nx * 5, y + ny * 5)
+          ctx.moveTo(x - nx * 28, y - ny * 28)
+          ctx.lineTo(x + nx * 8, y + ny * 8)
           ctx.stroke()
         })
+        break
+      }
+      case 'hex_rings': {
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5
+        for (let r = R * 0.3; r < R * 0.95; r += R * 0.2) {
+          tracePath(ctx, hexPoints(cx, cy, r, rot)); ctx.stroke()
+        }
         break
       }
     }
     ctx.restore()
   }
 
-  // ── 月桂叶 ──
-  function drawLaurel(ctx, cx, cy, rx, ry, color) {
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1.5
-    const leafCount = 8
-    // 左侧
-    for (let i = 0; i < leafCount; i++) {
-      const t = (i / (leafCount - 1)) * Math.PI * 0.7 + Math.PI * 0.65
-      const bx = cx + rx * Math.cos(t) * 0.55
-      const by = cy + ry * Math.sin(t)
-      ctx.save()
-      ctx.translate(bx, by)
-      ctx.rotate(t + Math.PI / 2)
-      ctx.beginPath()
-      ctx.ellipse(0, 0, 5, 12, 0, 0, Math.PI * 2)
-      ctx.strokeStyle = color
-      ctx.stroke()
-      ctx.restore()
-    }
-    // 右侧
-    for (let i = 0; i < leafCount; i++) {
-      const t = (i / (leafCount - 1)) * Math.PI * 0.7 + Math.PI * 1.65
-      const bx = cx + rx * Math.cos(t) * 0.55
-      const by = cy + ry * Math.sin(t)
-      ctx.save()
-      ctx.translate(bx, by)
-      ctx.rotate(t + Math.PI / 2)
-      ctx.beginPath()
-      ctx.ellipse(0, 0, 5, 12, 0, 0, Math.PI * 2)
-      ctx.strokeStyle = color
-      ctx.stroke()
-      ctx.restore()
-    }
-  }
-
-  // ── 人物图层 ──
-  function drawCharacterLayer(ctx, cx, cy, rx, ry, layer) {
+  // ─────────────────── 人物渲染 ───────────────────
+  function drawCharacter(ctx, cx, cy, R, layer) {
     if (!layer.image) return
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
     const img = layer.image
     const scale = layer.scale ?? 1
-    const ox = (layer.offsetX ?? 0) * SCALE / 2
-    const oy = (layer.offsetY ?? 0) * SCALE / 2
+    const ox = (layer.offsetX ?? 0) * 2
+    const oy = (layer.offsetY ?? 0) * 2
     const fitH = CH * 0.88 * scale
     const fitW = (img.naturalWidth / img.naturalHeight) * fitH
     ctx.drawImage(img, cx - fitW / 2 + ox, cy - fitH / 2 + oy + CH * 0.03, fitW, fitH)
     ctx.restore()
   }
 
-  // ── 文字标牌图层 ──
-  function drawBadgeText(ctx, cx, cy, contentRY, innerRY, layer) {
-    if (!layer.text) return
-    ctx.save()
-    const badgeW = (layer.badgeWidth ?? 180) * SCALE / 2
-    const badgeH = 26 * SCALE / 2
-    let by = cy + contentRY * 0.84
-    if (layer.position === 'badge_top') by = cy - contentRY * 0.84
-    const bx = cx + (layer.offsetX ?? 0) * SCALE / 2
-
-    // 标牌背景
-    const bg = ctx.createLinearGradient(bx - badgeW / 2, by, bx + badgeW / 2, by)
-    bg.addColorStop(0, '#12101e')
-    bg.addColorStop(0.5, '#1e1a30')
-    bg.addColorStop(1, '#12101e')
-    ctx.fillStyle = bg
-    roundRect(ctx, bx - badgeW / 2, by - badgeH / 2, badgeW, badgeH, 3)
-    ctx.fill()
-    ctx.strokeStyle = layer.borderColor ?? '#c8a96e'
-    ctx.lineWidth = 1.5
-    roundRect(ctx, bx - badgeW / 2, by - badgeH / 2, badgeW, badgeH, 3)
-    ctx.stroke()
-
-    // 标牌文字
-    const fontSize = Math.min(16 * SCALE / 2, (badgeW - 24) / (layer.text.length || 1) * 1.6)
-    ctx.font = `${layer.bold ? 'bold' : ''} ${fontSize}px "Cinzel Decorative", "Noto Serif SC", serif`
-    ctx.fillStyle = layer.color ?? '#e8c97a'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(layer.text, bx, by)
-    ctx.restore()
-  }
-
-  function drawTextLayer(ctx, cx, cy, rx, ry, layer) {
+  // ─────────────────── 文字渲染 ───────────────────
+  function drawText(ctx, cx, cy, R, layer) {
     if (!layer.text) return
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
-    const fs = (layer.fontSize ?? 18) * SCALE / 2
-    ctx.font = `${layer.bold ? 'bold' : ''} ${fs}px "${layer.font ?? 'Cinzel Decorative'}", "Noto Serif SC", serif`
-    ctx.fillStyle = layer.color ?? '#e8c97a'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const ox = (layer.offsetX ?? 0) * SCALE / 2
-    const oy = (layer.offsetY ?? 0) * SCALE / 2
-    ctx.fillText(layer.text, cx + ox, cy + oy)
+    const ox = (layer.offsetX ?? 0) * 2
+    const oy = (layer.offsetY ?? 0) * 2
+
+    if (layer.position === 'badge' || layer.position === 'badge_top') {
+      const by = layer.position === 'badge_top' ? cy - R * 0.85 : cy + R * 0.85
+      const bx = cx + ox
+      const bw = (layer.badgeWidth ?? 200) * 2
+      const bh = 48
+      const bg = ctx.createLinearGradient(bx - bw/2, by, bx + bw/2, by)
+      bg.addColorStop(0, '#10101c'); bg.addColorStop(0.5, '#1c1830'); bg.addColorStop(1, '#10101c')
+      ctx.fillStyle = bg
+      roundRect(ctx, bx - bw/2, by - bh/2, bw, bh, 5); ctx.fill()
+      ctx.strokeStyle = layer.borderColor ?? '#c8a96e'
+      ctx.lineWidth = 2.5
+      roundRect(ctx, bx - bw/2, by - bh/2, bw, bh, 5); ctx.stroke()
+      const fs = Math.min(28, (bw - 30) / Math.max(layer.text.length, 1) * 1.5)
+      ctx.font = `${layer.bold !== false ? 'bold' : ''} ${fs}px "Cinzel Decorative","Noto Serif SC",serif`
+      ctx.fillStyle = layer.color ?? '#e8c97a'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(layer.text, bx, by)
+    } else {
+      const fs = (layer.fontSize ?? 18) * 2
+      ctx.font = `${layer.bold ? 'bold' : ''} ${fs}px "Cinzel Decorative","Noto Serif SC",serif`
+      ctx.fillStyle = layer.color ?? '#e8c97a'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(layer.text, cx + ox, cy + oy)
+    }
     ctx.restore()
   }
 
+  // ─────────────────── 工具函数 ───────────────────
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + w - r, y)
-    ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.lineTo(x + w, y + h - r)
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.lineTo(x + r, y + h)
-    ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y)
+    ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r)
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
+    ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r)
+    ctx.arcTo(x, y, x + r, y, r); ctx.closePath()
   }
 
   function mulberry32(a) {
-    return function () {
+    return () => {
       a |= 0; a = a + 0x6D2B79F5 | 0
       let t = Math.imul(a ^ a >>> 15, 1 | a)
       t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
       return ((t ^ t >>> 14) >>> 0) / 4294967296
     }
+  }
+
+  function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return [r, g, b]
+  }
+
+  function blendHex(c1, c2, t) {
+    try {
+      const [r1,g1,b1] = hexToRgb(c1), [r2,g2,b2] = hexToRgb(c2)
+      const r = Math.round(r1 + (r2 - r1) * t)
+      const g = Math.round(g1 + (g2 - g1) * t)
+      const b = Math.round(b1 + (b2 - b1) * t)
+      return `rgb(${r},${g},${b})`
+    } catch { return c1 }
   }
 
   useEffect(() => { draw() }, [draw])
@@ -472,8 +469,8 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
       width={CW}
       height={CH}
       style={{
-        width: PRINT_W * 0.52,
-        height: PRINT_H * 0.52,
+        width: CW * 0.26,
+        height: CH * 0.26,
         filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.9))',
       }}
     />
@@ -481,4 +478,4 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
 })
 
 export default BadgeCanvas
-export { PRINT_W, PRINT_H }
+export { CW, CH }
