@@ -1,0 +1,5 @@
+.panel { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.title { padding: 10px 14px 6px; font-size: 11px; font-weight: 600; color: var(--gold-dim); text-transform: uppercase; letter-spacing: 0.12em; }
+.val { width: 32px; text-align: right; color: var(--gold); font-size: 11px; flex-shrink: 0; }
+input[type="range"] { flex: 1; accent-color: var(--gold); }
+input[type="color"] { width: 36px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--bg-card); cursor: pointer; }

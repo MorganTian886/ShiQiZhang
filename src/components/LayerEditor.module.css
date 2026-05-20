@@ -1,0 +1,36 @@
+.editor { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; }
+.empty { padding: 24px; text-align: center; color: var(--text-dim); font-size: 12px; }
+.layerTitle { padding: 10px 14px 6px; }
+.nameInput {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  width: 100%;
+  padding: 2px 0;
+  font-family: inherit;
+}
+.nameInput:focus { outline: none; border-bottom-color: var(--gold-dim); }
+.val { width: 36px; text-align: right; color: var(--gold); font-size: 11px; flex-shrink: 0; }
+.uploadBtn {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-bright);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.15s;
+}
+.uploadBtn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+.toggle input { accent-color: var(--gold); }
+input[type="range"] { flex: 1; accent-color: var(--gold); }
+input[type="color"] { width: 36px; height: 24px; border: 1px solid var(--border); border-radius: 3px; padding: 1px; background: var(--bg-card); cursor: pointer; }
+input[type="text"] { flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+input[type="text"]:focus { outline: none; border-color: var(--gold-dim); }
+select { flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+select:focus { outline: none; border-color: var(--gold-dim); }

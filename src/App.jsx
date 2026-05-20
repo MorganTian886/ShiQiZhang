@@ -1,24 +1,33 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import BadgeCanvas from './components/BadgeCanvas'
-import ControlPanel from './components/ControlPanel'
-import styles from './App.module.css'
+import LayerPanel from './components/LayerPanel'
+import LayerEditor from './components/LayerEditor'
+import BorderPanel from './components/BorderPanel'
+import s from './App.module.css'
+
+let nextId = 10
+
+const defaultLayers = [
+  { id: 1, type: 'background', name: '背景', visible: true, zIndex: 0, bgType: 'arknights', color1: '#1a2640', color2: '#060c14', opacity: 1 },
+  { id: 2, type: 'decoration', name: '装饰线', visible: true, zIndex: 1, decorType: 'corner_marks', color: 'rgba(200,169,110,0.5)', opacity: 0.7 },
+  { id: 3, type: 'text', name: 'STULTIFERA NAVIS', visible: true, zIndex: 5, text: 'STULTIFERA NAVIS', position: 'badge', color: '#e8c97a', bold: true, opacity: 1 },
+]
 
 const defaultConfig = {
-  bgColor1: '#1a1a2e',
-  bgColor2: '#0e0c18',
-  showRays: true,
-  characterImg: null,
-  characterScale: 1,
-  characterX: 0,
-  characterY: 0,
-  text1: 'Remarkable',
-  textPosition: 'bottom',
-  text2: '',
+  outerBorderWidth: 16,
+  outerBorderColor: '#1a1628',
+  gapWidth: 12,
+  gapColor: '#e8e0d0',
+  innerBorderWidth: 6,
+  innerLineWidth: 2,
 }
 
 export default function App() {
+  const [layers, setLayers] = useState(defaultLayers)
+  const [selectedId, setSelectedId] = useState(1)
   const [config, setConfig] = useState(defaultConfig)
   const [toast, setToast] = useState(null)
+  const [tab, setTab] = useState('layers') // 'layers' | 'border'
   const badgeRef = useRef(null)
 
   const showToast = (msg, type = 'success') => {
@@ -26,22 +35,41 @@ export default function App() {
     setTimeout(() => setToast(null), 2500)
   }
 
-  const handleExport = async () => {
-    if (!badgeRef.current) return
-    const dataUrl = badgeRef.current.exportPNG()
-    if (!dataUrl) return
+  const addLayer = (type) => {
+    const id = ++nextId
+    const zIndex = Math.max(...layers.map(l => l.zIndex)) + 1
+    const defaults = {
+      background: { bgType: 'gradient', color1: '#1a1a2e', color2: '#0a0818' },
+      decoration: { decorType: 'laurel', color: '#c8a96e' },
+      character: { scale: 1, offsetX: 0, offsetY: 0 },
+      text: { text: '文字', position: 'badge', color: '#e8c97a', fontSize: 18, bold: true },
+    }
+    setLayers(prev => [...prev, { id, type, name: '', visible: true, zIndex, opacity: 1, ...defaults[type] }])
+    setSelectedId(id)
+  }
 
-    // Electron环境
+  const deleteLayer = (id) => {
+    setLayers(prev => prev.filter(l => l.id !== id))
+    setSelectedId(null)
+  }
+
+  const changeLayer = (id, patch) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
+  }
+
+  const reorderLayer = (id, newZ) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, zIndex: newZ } : l))
+  }
+
+  const selectedLayer = layers.find(l => l.id === selectedId) ?? null
+
+  const handleExport = async () => {
+    const dataUrl = badgeRef.current?.exportPNG()
+    if (!dataUrl) return
     if (window.electronAPI) {
-      const result = await window.electronAPI.saveImage({
-        dataUrl,
-        defaultName: `士气章_${Date.now()}.png`
-      })
-      if (result.success) {
-        showToast(`已保存至：${result.filePath}`)
-      }
+      const result = await window.electronAPI.saveImage({ dataUrl, defaultName: '士气章.png' })
+      if (result.success) showToast(`已保存：${result.filePath}`)
     } else {
-      // 浏览器降级
       const a = document.createElement('a')
       a.href = dataUrl
       a.download = `士气章_${Date.now()}.png`
@@ -51,27 +79,54 @@ export default function App() {
   }
 
   return (
-    <div className={styles.app}>
-      <ControlPanel
-        config={config}
-        onChange={setConfig}
-        onExport={handleExport}
-      />
+    <div className={s.app}>
+      {/* 左侧面板 */}
+      <aside className={s.sidebar}>
+        <div className={s.sideHeader}>
+          <span className={s.logo}>⬡</span>
+          <h1>士气章</h1>
+          <button className={s.exportBtn} onClick={handleExport}>↓ 导出</button>
+        </div>
 
-      <main className={styles.canvas}>
-        <div className={styles.canvasInner}>
-          <div className={styles.badge}>
-            <BadgeCanvas ref={badgeRef} config={config} />
-          </div>
-          <p className={styles.sizeNote}>实际印刷尺寸：5.2 × 6 cm @ 300DPI</p>
+        <div className={s.tabs}>
+          <button className={tab === 'layers' ? s.activeTab : ''} onClick={() => setTab('layers')}>图层</button>
+          <button className={tab === 'border' ? s.activeTab : ''} onClick={() => setTab('border')}>边框</button>
+        </div>
+
+        <div className={s.sideContent}>
+          {tab === 'layers' && (
+            <>
+              <LayerPanel
+                layers={layers}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onChange={changeLayer}
+                onAdd={addLayer}
+                onDelete={deleteLayer}
+                onReorder={reorderLayer}
+              />
+              <LayerEditor
+                layer={selectedLayer}
+                onChange={changeLayer}
+              />
+            </>
+          )}
+          {tab === 'border' && (
+            <BorderPanel config={config} onChange={setConfig} />
+          )}
+        </div>
+
+        <div className={s.sizeNote}>5.2 × 6 cm · 300 DPI · PNG</div>
+      </aside>
+
+      {/* 画布区 */}
+      <main className={s.canvas}>
+        <div className={s.canvasInner}>
+          <BadgeCanvas ref={badgeRef} config={config} layers={layers} />
         </div>
       </main>
 
-      {toast && (
-        <div className={`${styles.toast} ${styles[toast.type]}`}>
-          {toast.msg}
-        </div>
-      )}
+      {toast && <div className={`${s.toast} ${s[toast.type]}`}>{toast.msg}</div>}
     </div>
   )
 }

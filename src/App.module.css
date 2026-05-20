@@ -1,8 +1,69 @@
-.app {
-  display: flex;
+.app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+.sidebar {
+  width: 260px;
+  min-width: 260px;
   height: 100vh;
-  width: 100vw;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.sideHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo { font-size: 20px; color: var(--gold); }
+.sideHeader h1 { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.06em; }
+
+.exportBtn {
+  background: linear-gradient(135deg, #c8a96e, #a07840);
+  border: none;
+  color: #0a0a0c;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.exportBtn:hover { background: linear-gradient(135deg, #e8c97a, #c8a96e); }
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tabs button {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.tabs button:hover { color: var(--text-secondary); }
+.activeTab { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
+
+.sideContent { flex: 1; overflow-y: auto; }
+
+.sizeNote {
+  padding: 8px 14px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .canvas {
@@ -11,51 +72,27 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-deep);
-  position: relative;
   overflow: hidden;
+  position: relative;
 }
-
-/* 网格背景 */
 .canvas::before {
   content: '';
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(200,169,110,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(200,169,110,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(200,169,110,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200,169,110,0.025) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
 }
-
 .canvasInner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
   position: relative;
   z-index: 1;
+  animation: fadeIn 0.5s ease both;
 }
-
-.badge {
-  position: relative;
-  animation: floatIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.sizeNote {
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 0.08em;
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .toast {
@@ -66,20 +103,15 @@
   background: var(--bg-card);
   border: 1px solid var(--border-bright);
   color: var(--text-primary);
-  padding: 10px 20px;
+  padding: 9px 18px;
   border-radius: 8px;
-  font-size: 13px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  animation: slideUp 0.3s ease;
+  font-size: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   z-index: 100;
+  animation: slideUp 0.25s ease;
 }
-
-.toast.success {
-  border-color: var(--gold-dim);
-  color: var(--gold);
-}
-
+.toast.success { border-color: var(--gold-dim); color: var(--gold); }
 @keyframes slideUp {
-  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
