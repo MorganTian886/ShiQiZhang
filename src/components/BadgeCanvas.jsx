@@ -64,12 +64,20 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
 
     const cx = CW / 2
     const cy = CH / 2
-    const rot = -Math.PI / 6
+    // 平顶六边形（rot=0）：宽=R√3，高=2R
+    // 尖顶六边形（rot=-π/6）：宽=2R，高=R√3
+    // 用户图示是平顶朝上，即左右两边是平的，上下是尖的 → rot = 0
+    // 实际上看图：上下尖，左右有斜边 → 尖顶朝上 = rot = -π/6
+    // 图示中六边形上下有尖角，左右两侧是斜边 → 尖顶朝上，rot = -Math.PI/6
+    // 但图示六边形比较"宽扁"，宽>高的感觉 → 这是因为画布5.2×6，六边形宽铺满，高适配
+    const rot = 0  // 平顶朝上（上下是平边，左右是尖角）
 
-    // 六边形尺寸：用户控制，不超过画布
-    // hexW/hexH 是百分比(0~100)，表示占画布宽/高的比例
-    const hexW = config.hexW ?? 90   // %
-    const hexH = config.hexH ?? 90   // %
+    const hexW = config.hexW ?? 90
+    const hexH = config.hexH ?? 90
+    // 平顶六边形：宽方向 = R√3，高方向 = 2R
+    // 所以 R_from_width = (CW * hexW/100) / sqrt(3)
+    //      R_from_height = (CH * hexH/100) / 2
+    // 为让六边形独立控制宽高（允许非正六边形拉伸），直接用rx/ry分离
     const baseRx = (CW * hexW / 100) / 2
     const baseRy = (CH * hexH / 100) / 2
 
