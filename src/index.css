@@ -1,0 +1,50 @@
+:root {
+  --bg-deep: #0a0a0c;
+  --bg-panel: #111116;
+  --bg-card: #18181f;
+  --border: #2a2a38;
+  --border-bright: #3d3d55;
+  --gold: #c8a96e;
+  --gold-bright: #e8c97a;
+  --gold-dim: #7a6340;
+  --text-primary: #e8e0d0;
+  --text-secondary: #8a8090;
+  --text-dim: #4a4458;
+  --accent: #6b7fff;
+  --accent-warm: #ff7b54;
+  --success: #4caf82;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Noto Serif SC', serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 2px;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
