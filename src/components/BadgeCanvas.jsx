@@ -56,21 +56,23 @@ function getRxRy(hexW, hexH) {
   return { rx: safeR(hexW / Math.sqrt(3)), ry: safeR(hexH / 2) }
 }
 
-// 将canvas坐标转为渲染坐标（考虑预览缩放）
-function canvasPt(e, canvas, scale) {
+// 将屏幕坐标转为canvas渲染坐标（根据canvas实际显示尺寸和渲染尺寸的比例）
+function canvasPt(e, canvas) {
   const rect = canvas.getBoundingClientRect()
+  const scaleX = canvas.width  / rect.width
+  const scaleY = canvas.height / rect.height
   return {
-    x: (e.clientX - rect.left) / scale,
-    y: (e.clientY - rect.top)  / scale,
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top)  * scaleY,
   }
 }
 
 // 获取文字图层的变换矩阵控制点（在渲染坐标系）
-function getTextHandles(layer, ctx, scale) {
-  const x   = layer.textX ?? 0
-  const y   = layer.textY ?? 0
-  const w   = layer.textW ?? 300
-  const h   = layer.textH ?? 80
+function getTextHandles(layer, defaultX, defaultY) {
+  const x   = layer.textX ?? defaultX
+  const y   = layer.textY ?? defaultY
+  const w   = layer.textW ?? 400
+  const h   = layer.textH ?? 100
   const rot = layer.textRot ?? 0
 
   // 8个角/边点 + 1个旋转点，相对于文本框中心的局部坐标
@@ -102,9 +104,9 @@ function hitHandle(pt, handles, rotHandle) {
   return null
 }
 
-function ptInRect(pt, layer) {
-  const x=layer.textX??0, y=layer.textY??0
-  const w=layer.textW??300, h=layer.textH??80
+function ptInRect(pt, layer, defaultX, defaultY) {
+  const x=layer.textX??defaultX, y=layer.textY??defaultY
+  const w=layer.textW??400, h=layer.textH??100
   const rot=layer.textRot??0
   const cos=Math.cos(-rot), sin=Math.sin(-rot)
   const dx=pt.x-x, dy=pt.y-y
@@ -231,8 +233,8 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     if (!layer.text) return
     const x   = layer.textX ?? cx
     const y   = layer.textY ?? cy
-    const w   = layer.textW ?? 300
-    const h   = layer.textH ?? 80
+    const w   = layer.textW ?? 400
+    const h   = layer.textH ?? 100
     const r   = layer.textRot ?? 0
     const fs  = layer.fontSize ?? 24
     const fontName = layer.font ?? 'Cinzel Decorative'
@@ -296,7 +298,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
   const handleMouseDown = useCallback((e) => {
     if (e.button !== 0) return
     const canvas = canvasRef.current
-    const pt = canvasPt(e, canvas, previewScale)
+    const pt = canvasPt(e, canvas)
 
     // 找选中的文字图层
     const textLayers = (layers||[]).filter(l=>l.type==='text'&&l.visible)
@@ -304,7 +306,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
 
     // 优先检测当前选中图层的控制手柄
     if (selected) {
-      const { handles, rotHandle, cx: lx, cy: ly, w, h, rot: lrot } = getTextHandles(selected)
+      const { handles, rotHandle, cx: lx, cy: ly, w, h, rot: lrot } = getTextHandles(selected, cx, cy)
       const hit = hitHandle(pt, handles, rotHandle)
       if (hit) {
         drag.current = {
@@ -317,7 +319,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
         e.preventDefault(); return
       }
       // 检测是否在文本框内（拖移）
-      if (ptInRect(pt, selected)) {
+      if (ptInRect(pt, selected, cx, cy)) {
         drag.current = {
           type: 'move',
           layerId: selected.id,
@@ -331,7 +333,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     // 点击其他文字图层进行选中
     for (let i = textLayers.length-1; i >= 0; i--) {
       const l = textLayers[i]
-      if (ptInRect(pt, l)) {
+      if (ptInRect(pt, l, cx, cy)) {
         onLayerChange && onLayerChange('select', l.id)
         drag.current = {
           type: 'move',
@@ -347,7 +349,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
   const handleMouseMove = useCallback((e) => {
     if (!drag.current) return
     const canvas = canvasRef.current
-    const pt = canvasPt(e, canvas, previewScale)
+    const pt = canvasPt(e, canvas)
     const { type, layerId, startPt, startLayer, idx } = drag.current
     const dx = pt.x - startPt.x, dy = pt.y - startPt.y
 
@@ -396,17 +398,17 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
   const handleMouseMoveStyle = useCallback((e) => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const pt = canvasPt(e, canvas, previewScale)
+    const pt = canvasPt(e, canvas)
     const selected = layers?.find(l=>l.id===selectedId&&l.type==='text')
     if (selected) {
-      const { handles, rotHandle } = getTextHandles(selected)
+      const { handles, rotHandle } = getTextHandles(selected, cx, cy)
       const hit = hitHandle(pt, handles, rotHandle)
       if (hit?.type==='rotate') { canvas.style.cursor='grab'; return }
       if (hit?.type==='scale')  { canvas.style.cursor='nwse-resize'; return }
-      if (ptInRect(pt, selected)) { canvas.style.cursor='move'; return }
+      if (ptInRect(pt, selected, cx, cy)) { canvas.style.cursor='move'; return }
     }
     const textLayers=(layers||[]).filter(l=>l.type==='text'&&l.visible)
-    if (textLayers.some(l=>ptInRect(pt,l))) { canvas.style.cursor='move'; return }
+    if (textLayers.some(l=>ptInRect(pt,l,cx,cy))) { canvas.style.cursor='move'; return }
     canvas.style.cursor='default'
   }, [layers, selectedId, previewScale])
 
