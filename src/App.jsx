@@ -41,7 +41,7 @@ export default function App() {
       background: { bgType: 'radial', color1: '#1a1a2e', color2: '#0a0818' },
       decoration:  { decorType: 'corner_marks', color: '#c8a96e' },
       character:   { scale: 1, offsetX: 0, offsetY: 0 },
-      text:        { text: '输入文字', font: 'Cinzel Decorative', fontSize: 24, color: '#e8c97a', bold: false, offsetX: 0, offsetY: 0 },
+      text:        { text: '输入文字', font: 'Cinzel Decorative', fontSize: 24, color: '#e8c97a', bold: false, textX: null, textY: null, textW: 400, textH: 100, textRot: 0 },
     }
     setLayers(prev => [...prev, { id, type, name: '', visible: true, zIndex, opacity: 1, ...defaults[type] }])
     setSelectedId(id)
@@ -95,7 +95,16 @@ export default function App() {
 
       <main className={s.canvas}>
         <div className={s.canvasInner}>
-          <BadgeCanvas ref={badgeRef} config={config} layers={layers} />
+          <BadgeCanvas
+              ref={badgeRef}
+              config={config}
+              layers={layers}
+              selectedId={selectedId}
+              onLayerChange={(action, id, patch) => {
+                if (action === 'select') setSelectedId(id)
+                if (action === 'update') changeLayer(id, patch)
+              }}
+            />
         </div>
       </main>
 

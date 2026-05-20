@@ -215,11 +215,14 @@ export default function LayerEditor({ layer, onChange }) {
         <div className={s.textareaRow}>
           <textarea
             value={layer.text ?? ''}
-            placeholder="输入文字内容"
+            placeholder="输入文字内容（Shift+Enter换行）"
             rows={3}
             onChange={e => set('text', e.target.value)}
           />
         </div>
+        <p style={{fontSize:10,color:'var(--text-dim)',padding:'0 14px 4px'}}>
+          📌 在预览区直接拖动文字框移动 · 拖角点缩放 · 拖金色点旋转
+        </p>
         <Row label="字体">
           <select value={layer.font ?? 'Cinzel Decorative'}
             onChange={e => set('font', e.target.value)}>
@@ -243,15 +246,11 @@ export default function LayerEditor({ layer, onChange }) {
             <span>粗体</span>
           </label>
         </Row>
-        <Row label="左右">
-          <input type="range" min="-500" max="500" step="1" value={layer.offsetX ?? 0}
-            onChange={e => set('offsetX', +e.target.value)} />
-          <span className={s.val}>{layer.offsetX ?? 0}</span>
-        </Row>
-        <Row label="上下">
-          <input type="range" min="-700" max="700" step="1" value={layer.offsetY ?? 0}
-            onChange={e => set('offsetY', +e.target.value)} />
-          <span className={s.val}>{layer.offsetY ?? 0}</span>
+        <Row label="旋转">
+          <input type="range" min="-3.14159" max="3.14159" step="0.01"
+            value={layer.textRot ?? 0}
+            onChange={e => set('textRot', +e.target.value)} />
+          <span className={s.val}>{Math.round((layer.textRot??0)*180/Math.PI)}°</span>
         </Row>
       </>}
     </div>
