@@ -87,13 +87,12 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     const innerW    = (config.innerBorderWidth   ?? 1.2)* DPI_SCALE / 10
     const innerLineW= (config.innerLineWidth     ?? 0.3)* DPI_SCALE / 10
 
-    // 各层rx/ry（等比缩进）
-    const scale = (R, offset) => ({ rx: R.rx - offset, ry: R.ry - offset })
+    // 各层rx/ry（等比缩进，最小值保护防止负数）
     const R0 = { rx: baseRx, ry: baseRy }
-    const R1 = scale(R0, outerW)
-    const R2 = scale(R1, gapW)
-    const R3 = scale(R2, innerW)
-    const R4 = scale(R3, innerLineW * 3)
+    const R1 = { rx: Math.max(1, R0.rx - outerW),    ry: Math.max(1, R0.ry - outerW) }
+    const R2 = { rx: Math.max(1, R1.rx - gapW),      ry: Math.max(1, R1.ry - gapW) }
+    const R3 = { rx: Math.max(1, R2.rx - innerW),    ry: Math.max(1, R2.ry - innerW) }
+    const R4 = { rx: Math.max(1, R3.rx - innerLineW*3), ry: Math.max(1, R3.ry - innerLineW*3) }
 
     const outerColor = config.outerBorderColor  ?? '#1a1628'
     const gapColor   = config.gapColor          ?? '#e8e0d0'
@@ -206,13 +205,13 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
         fillGrad(g); break
       }
       case 'radial': {
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx,ry))
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, Math.max(rx,ry)))
         g.addColorStop(0,c1); g.addColorStop(1,c2); fillGrad(g); break
       }
       case 'radial_offcenter': {
         const ox = (layer.radialOX ?? 0)*rx/100
         const oy = (layer.radialOY ?? -40)*ry/100
-        const g = ctx.createRadialGradient(cx+ox,cy+oy,0,cx,cy,Math.max(rx,ry)*1.2)
+        const g = ctx.createRadialGradient(cx+ox,cy+oy,0,cx,cy,Math.max(1, Math.max(rx,ry)*1.2))
         g.addColorStop(0,c1); g.addColorStop(1,c2); fillGrad(g); break
       }
       case 'radial_hex': {
@@ -276,7 +275,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
         break
       }
       case 'arknights': {
-        const g = ctx.createRadialGradient(cx,cy*0.75,0,cx,cy,Math.max(rx,ry)*1.1)
+        const g = ctx.createRadialGradient(cx,cy*0.75,0,cx,cy,Math.max(1, Math.max(rx,ry)*1.1))
         g.addColorStop(0,'#1a2640'); g.addColorStop(0.6,'#0d1520'); g.addColorStop(1,'#060c14')
         ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch)
         ctx.strokeStyle = 'rgba(100,160,255,0.07)'; ctx.lineWidth = 1
@@ -293,7 +292,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
             ctx.closePath(); ctx.stroke()
           }
         }
-        const halo = ctx.createRadialGradient(cx,cy*0.85,0,cx,cy*0.85,Math.max(rx,ry)*0.6)
+        const halo = ctx.createRadialGradient(cx,cy*0.85,0,cx,cy*0.85,Math.max(1, Math.max(rx,ry)*0.6))
         halo.addColorStop(0,'rgba(80,160,255,0.2)'); halo.addColorStop(1,'rgba(80,160,255,0)')
         ctx.fillStyle = halo; ctx.fillRect(0,0,cw,ch)
         break
