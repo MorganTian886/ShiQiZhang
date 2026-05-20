@@ -373,35 +373,28 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers }, ref) {
     ctx.restore()
   }
 
-  // ──── 文字 ────
+  // ──── 文字（自由文本框，可移动，支持多行）────
   function drawText(ctx, cx, cy, R, layer) {
     if (!layer.text) return
     ctx.save()
     ctx.globalAlpha = layer.opacity ?? 1
     const ox = (layer.offsetX ?? 0) * 2
     const oy = (layer.offsetY ?? 0) * 2
-    const rx = R.rx, ry = R.ry
-
-    if (layer.position === 'badge' || layer.position === 'badge_top') {
-      const by = layer.position==='badge_top' ? cy-ry*.82 : cy+ry*.82
-      const bx = cx+ox, bw=layer.badgeWidth??260, bh=44
-      const bg=ctx.createLinearGradient(bx-bw/2,by,bx+bw/2,by)
-      bg.addColorStop(0,'#10101c'); bg.addColorStop(.5,'#1c1830'); bg.addColorStop(1,'#10101c')
-      ctx.fillStyle=bg; roundRect(ctx,bx-bw/2,by-bh/2,bw,bh,5); ctx.fill()
-      ctx.strokeStyle=layer.borderColor??'#c8a96e'; ctx.lineWidth=2
-      roundRect(ctx,bx-bw/2,by-bh/2,bw,bh,5); ctx.stroke()
-      const fs=Math.min(22,(bw-28)/Math.max(layer.text.length,1)*1.5)
-      ctx.font=`bold ${fs}px "Cinzel Decorative","Noto Serif SC",serif`
-      ctx.fillStyle=layer.color??'#e8c97a'
-      ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.fillText(layer.text,bx,by)
-    } else {
-      const fs=(layer.fontSize??18)*2
-      ctx.font=`${layer.bold?'bold':''} ${fs}px "Cinzel Decorative","Noto Serif SC",serif`
-      ctx.fillStyle=layer.color??'#e8c97a'
-      ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.fillText(layer.text,cx+ox,cy+oy)
-    }
+    const fs = (layer.fontSize ?? 24) * 2
+    const fontName = layer.font ?? 'Cinzel Decorative'
+    ctx.font = `${layer.bold ? 'bold' : ''} ${fs}px "${fontName}", "Noto Serif SC", serif`
+    ctx.fillStyle = layer.color ?? '#e8c97a'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    // 支持多行（换行符分割）
+    const lines = layer.text.split('\n')
+    const lineH = fs * 1.3
+    const totalH = lines.length * lineH
+    lines.forEach((line, i) => {
+      const lx = cx + ox
+      const ly = cy + oy - totalH / 2 + lineH * i + lineH / 2
+      ctx.fillText(line, lx, ly)
+    })
     ctx.restore()
   }
 

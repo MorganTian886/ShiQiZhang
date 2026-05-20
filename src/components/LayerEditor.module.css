@@ -34,3 +34,29 @@ input[type="text"] { flex: 1; background: var(--bg-card); border: 1px solid var(
 input[type="text"]:focus { outline: none; border-color: var(--gold-dim); }
 select { flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
 select:focus { outline: none; border-color: var(--gold-dim); }
+
+.textareaRow {
+  padding: 6px 14px;
+}
+.textareaRow textarea {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.5;
+}
+.textareaRow textarea:focus {
+  outline: none;
+  border-color: var(--gold-dim);
+}
+.hexLabel {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: monospace;
+  flex-shrink: 0;
+}

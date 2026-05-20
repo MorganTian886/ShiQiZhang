@@ -41,7 +41,7 @@ export default function App() {
       background: { bgType: 'radial', color1: '#1a1a2e', color2: '#0a0818' },
       decoration:  { decorType: 'corner_marks', color: '#c8a96e' },
       character:   { scale: 1, offsetX: 0, offsetY: 0 },
-      text:        { text: 'STULTIFERA NAVIS', position: 'badge', color: '#e8c97a', bold: true, badgeWidth: 200 },
+      text:        { text: '输入文字', font: 'Cinzel Decorative', fontSize: 24, color: '#e8c97a', bold: false, offsetX: 0, offsetY: 0 },
     }
     setLayers(prev => [...prev, { id, type, name: '', visible: true, zIndex, opacity: 1, ...defaults[type] }])
     setSelectedId(id)
