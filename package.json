@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:build:win": "vite build && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder"
+    "electron:build": "vite build && electron-builder --win portable",
+    "electron:build:win": "vite build && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder",
+    "electron:build:dir": "vite build && electron-builder --win dir"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -42,15 +43,13 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "build/icon.ico",
-      "signingHashAlgorithms": null,
-      "sign": null
+      "icon": "build/icon.ico"
     },
     "mac": {
       "target": [
@@ -68,15 +67,10 @@
       "target": "AppImage",
       "icon": "build/icon.png"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "蚀刻章设计工具",
-      "installerIcon": "build/icon.ico"
-    },
-    "forceCodeSigning": false
+    "forceCodeSigning": false,
+    "portable": {
+      "artifactName": "蚀刻章设计工具-${version}-便携版.exe"
+    }
   },
   "author": "Rhoxane"
 }
