@@ -12,7 +12,7 @@ const isDev = !distExists && (process.env.NODE_ENV === 'development' || !app.isP
 // 自动保存目录：桌面/Rhoxane/auto-save
 function getAutoSaveDir() {
   const desktop = path.join(os.homedir(), 'Desktop')
-  const dir = path.join(desktop, 'Rhoxane', 'auto-save')
+  const dir = path.join(desktop, 'auto-save', '蚀刻章')
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   return dir
 }
