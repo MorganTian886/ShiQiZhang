@@ -40,7 +40,57 @@ app.whenReady().then(createWindow)
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 
-// ── 手动导出PNG ──
+// ── 向PNG注入300DPI的pHYs元数据 ──
+function inject300dpi(pngBuffer) {
+  // 300 DPI = 300 * 39.3701 pixels/meter ≈ 11811
+  const ppm = Math.round(300 * 39.3701)  // pixels per meter
+  // pHYs chunk: 4字节X密度 + 4字节Y密度 + 1字节单位(1=meter)
+  const physData = Buffer.alloc(9)
+  physData.writeUInt32BE(ppm, 0)
+  physData.writeUInt32BE(ppm, 4)
+  physData.writeUInt8(1, 8)
+
+  // 计算CRC（chunk类型 + data）
+  const crcLib = require('zlib')
+  const chunkType = Buffer.from('pHYs')
+  const crcInput = Buffer.concat([chunkType, physData])
+  // Node.js zlib 没有直接暴露crc32，手动实现
+  function crc32(buf) {
+    let crc = 0xFFFFFFFF
+    const table = (() => {
+      const t = []
+      for (let i = 0; i < 256; i++) {
+        let c = i
+        for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+        t.push(c)
+      }
+      return t
+    })()
+    for (let i = 0; i < buf.length; i++) crc = table[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8)
+    return (crc ^ 0xFFFFFFFF) >>> 0
+  }
+
+  const crcVal = crc32(crcInput)
+  const physChunk = Buffer.alloc(4 + 4 + 9 + 4)
+  physChunk.writeUInt32BE(9, 0)           // chunk长度
+  chunkType.copy(physChunk, 4)            // 'pHYs'
+  physData.copy(physChunk, 8)             // 数据
+  physChunk.writeUInt32BE(crcVal, 17)     // CRC
+
+  // PNG结构：8字节签名 + IHDR chunk（固定25字节）+ 其他chunks
+  // 在IHDR之后插入pHYs
+  const PNG_SIG_LEN = 8
+  const IHDR_LEN = 25  // 4(len)+4(type)+13(data)+4(crc)
+  const insertPos = PNG_SIG_LEN + IHDR_LEN
+
+  return Buffer.concat([
+    pngBuffer.slice(0, insertPos),
+    physChunk,
+    pngBuffer.slice(insertPos)
+  ])
+}
+
+// ── 手动导出PNG（含300DPI元数据）──
 ipcMain.handle('save-image', async (event, { dataUrl, defaultName }) => {
   const { filePath } = await dialog.showSaveDialog({
     title: '导出士气章',
@@ -49,7 +99,9 @@ ipcMain.handle('save-image', async (event, { dataUrl, defaultName }) => {
   })
   if (filePath) {
     const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
-    fs.writeFileSync(filePath, base64, 'base64')
+    const raw = Buffer.from(base64, 'base64')
+    const with300dpi = inject300dpi(raw)
+    fs.writeFileSync(filePath, with300dpi)
     return { success: true, filePath }
   }
   return { success: false }
@@ -65,11 +117,12 @@ ipcMain.handle('auto-save', async (event, { projectJson, previewDataUrl }) => {
     const jsonPath = path.join(dir, 'autosave_project.json')
     fs.writeFileSync(jsonPath, projectJson, 'utf-8')
 
-    // 保存预览PNG（最新一张）
+    // 保存预览PNG（最新一张，含300DPI）
     if (previewDataUrl) {
       const pngPath = path.join(dir, 'autosave_preview.png')
       const base64 = previewDataUrl.replace(/^data:image\/png;base64,/, '')
-      fs.writeFileSync(pngPath, base64, 'base64')
+      const raw = Buffer.from(base64, 'base64')
+      fs.writeFileSync(pngPath, inject300dpi(raw))
     }
 
     // 每小时备份一个带时间戳的版本，防止误覆盖
