@@ -1,9 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+
+// 判断是否开发模式：只有当 dist/index.html 不存在时才认为是开发模式
+const distIndexPath = path.join(__dirname, '../dist/index.html')
+const distExists = fs.existsSync(distIndexPath)
+const isDev = !distExists && (process.env.NODE_ENV === 'development' || !app.isPackaged)
 
 // 自动保存目录：桌面/Rhoxane/蚀刻章
 function getAutoSaveDir() {
@@ -32,7 +36,15 @@ function createWindow() {
     win.loadURL('http://localhost:5173')
     win.webContents.openDevTools()
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
+    // 生产模式：加载打包的 dist/index.html
+    win.loadFile(distIndexPath).catch(err => {
+      // 加载失败时显示错误信息，方便排查
+      win.webContents.executeJavaScript(`
+        document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif">'
+          + '<h2>加载失败</h2><p>路径: ${distIndexPath.replace(/\\\\/g, '/')}</p>'
+          + '<p>错误: ${String(err).replace(/'/g, '')}</p></div>'
+      `).catch(()=>{})
+    })
   }
 }
 
