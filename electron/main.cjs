@@ -9,7 +9,7 @@ const distIndexPath = path.join(__dirname, '../dist/index.html')
 const distExists = fs.existsSync(distIndexPath)
 const isDev = !distExists && (process.env.NODE_ENV === 'development' || !app.isPackaged)
 
-// 自动保存目录：桌面/Rhoxane/auto-save
+// 自动保存目录：桌面/auto-save/蚀刻章
 function getAutoSaveDir() {
   const desktop = path.join(os.homedir(), 'Desktop')
   const dir = path.join(desktop, 'auto-save', '蚀刻章')
