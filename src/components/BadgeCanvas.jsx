@@ -95,6 +95,28 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
 
   const hw=w/2, hh=h/2
 
+  // 图片类型单独处理
+  if (layer.decorType === 'image' && layer.image) {
+    const img = layer.image
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      const sc = Math.min(w / img.naturalWidth, h / img.naturalHeight)
+      ctx.drawImage(img,
+        -img.naturalWidth * sc / 2, -img.naturalHeight * sc / 2,
+        img.naturalWidth * sc, img.naturalHeight * sc)
+    }
+    if (isSelected) {
+      ctx.strokeStyle='rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.setLineDash([5,4])
+      ctx.strokeRect(-hw,-hh,w,h);ctx.setLineDash([])
+      ctx.strokeStyle='rgba(100,180,255,0.6)';ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(0,-hh-ROT_OFFSET);ctx.stroke()
+      const dH=(lx,ly,isR)=>{ctx.beginPath();ctx.arc(lx,ly,HANDLE_R,0,Math.PI*2);ctx.fillStyle=isR?'#ffd700':'white';ctx.fill();ctx.strokeStyle=isR?'#c8a000':'rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.stroke()}
+      ;[[-hw,-hh],[0,-hh],[hw,-hh],[hw,0],[hw,hh],[0,hh],[-hw,hh],[-hw,0]].forEach(([lx,ly])=>dH(lx,ly,false))
+      dH(0,-hh-ROT_OFFSET,true)
+    }
+    ctx.restore()
+    return
+  }
+
   ctx.beginPath()
   switch(layer.decorType) {
     case 'rect':

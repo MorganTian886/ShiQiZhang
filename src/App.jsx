@@ -51,10 +51,10 @@ export default function App() {
     setSelectedId(id)
   }
 
-  const deleteLayer = (id) => {
+  const deleteLayer = useCallback((id) => {
     setLayers(prev => prev.filter(l => l.id !== id))
     setSelectedId(null)
-  }
+  }, [])
 
   const duplicateLayer = (id) => {
     const src = layers.find(l => l.id === id)
@@ -173,6 +173,22 @@ export default function App() {
   }, [layers, config])
 
   const [autoSaveStatus, setAutoSaveStatus] = useState('')
+
+  // Delete键删除选中图层
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // 防止在输入框里触发
+        const tag = document.activeElement?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
+        if (selectedId !== null) {
+          deleteLayer(selectedId)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedId, deleteLayer])
 
   // 每 60 秒自动保存一次，有变化才触发
   useEffect(() => {
