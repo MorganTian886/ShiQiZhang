@@ -55,15 +55,25 @@ npm run electron:dev
 
 ---
 
-## 打包成可执行文件（.exe）
+## 打包成可执行文件
 
-### 推荐方式：electron-packager（不报 winCodeSign 错误）
+### Windows（在 Windows 上运行）
 
 ```bash
-npm run pack
+npm run pack:win
 ```
 
-打包完成后在 `dist-pack/shiqizhang-win32-x64/` 文件夹里，双击 `shiqizhang.exe` 运行。整个文件夹可以复制到任何 Windows 电脑使用。
+打包完成后在 `dist-pack/shiqizhang-win32-x64/` 里，双击 `shiqizhang.exe` 运行。
+
+### macOS（在 Mac 上运行）
+
+```bash
+npm run pack:mac
+```
+
+打包完成后在 `dist-pack/蚀刻章设计工具-darwin-x64/` 里，双击 `蚀刻章设计工具.app` 运行。
+
+> Mac 首次打开可能提示「无法验证开发者」，去「系统设置 → 隐私与安全性」点「仍要打开」即可。
 
 ---
 

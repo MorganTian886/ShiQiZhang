@@ -10,7 +10,9 @@
     "electron:build": "vite build && electron-builder --win portable",
     "electron:build:win": "vite build && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder",
     "electron:build:dir": "vite build && electron-builder --win dir",
-    "pack": "vite build && electron-packager . shiqizhang --platform=win32 --arch=x64 --out=dist-pack --overwrite --icon=build/icon.ico --app-version=1.0.0 --ignore=\"(^/src$|^/src/)\" --ignore=\"(^/dist-pack)\" --ignore=\"(^/dist-electron)\" --ignore=\"(^/\\.git)\" --prune=true"
+    "pack": "vite build && electron-packager . shiqizhang --platform=win32 --arch=x64 --out=dist-pack --overwrite --icon=build/icon.ico --app-version=1.0.0 --ignore=\"(^/src$|^/src/)\" --ignore=\"(^/dist-pack)\" --ignore=\"(^/dist-electron)\" --ignore=\"(^/\\.git)\" --prune=true",
+    "pack:win": "vite build && electron-packager . shiqizhang --platform=win32 --arch=x64 --out=dist-pack --overwrite --icon=build/icon.ico --app-version=1.0.0 --ignore=\"(^/src$|^/src/)\" --ignore=\"(^/dist-pack)\" --ignore=\"(^/dist-electron)\" --ignore=\"(^/\\.git)\" --prune=true",
+    "pack:mac": "vite build && electron-packager . 蚀刻章设计工具 --platform=darwin --arch=x64 --out=dist-pack --overwrite --icon=build/icon.icns --app-version=1.0.0 --ignore=\"(^/src$|^/src/)\" --ignore=\"(^/dist-pack)\" --ignore=\"(^/dist-electron)\" --ignore=\"(^/\\.git)\" --prune=true"
   },
   "dependencies": {
     "react": "^18.2.0",
