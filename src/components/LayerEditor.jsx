@@ -41,14 +41,21 @@ const DECOR_TYPES = [
 ]
 
 const FONTS = [
+  { group: '── 自定义字体 ──' },
+  { value: 'Bebas Neue Bold',   label: 'Bebas Neue Bold' },
+  { value: 'Dubai',             label: 'Dubai Regular' },
+  { value: 'Dubai Light',       label: 'Dubai Light' },
+  { value: 'Dubai Medium',      label: 'Dubai Medium' },
+  { value: 'Dubai Bold',        label: 'Dubai Bold' },
+  { value: 'MiSans',            label: 'MiSans' },
+  { group: '── 花体/装饰字体 ──' },
   { value: 'Cinzel Decorative', label: 'Cinzel Decorative' },
   { value: 'Cinzel',            label: 'Cinzel' },
-  { value: 'MedievalSharp',     label: 'MedievalSharp' },
   { value: 'UnifrakturMaguntia',label: '古典黑体 Fraktur' },
   { value: 'Almendra Display',  label: 'Almendra Display' },
   { value: 'Uncial Antiqua',    label: 'Uncial Antiqua' },
   { value: 'Pirata One',        label: 'Pirata One' },
-  { value: 'MedievalSharp',     label: 'MedievalSharp' },
+  { group: '── 中文字体 ──' },
   { value: 'Noto Serif SC',     label: '宋体 Noto Serif SC' },
   { value: 'Ma Shan Zheng',     label: '马善政楷书' },
   { value: 'ZCOOL XiaoWei',     label: '站酷小薇体' },
@@ -263,7 +270,11 @@ export default function LayerEditor({ layer, onChange }) {
         <Row label="字体">
           <select value={layer.font ?? 'Cinzel Decorative'}
             onChange={e => set('font', e.target.value)}>
-            {FONTS.map((f, i) => <option key={i} value={f.value}>{f.label}</option>)}
+            {FONTS.map((f, i) =>
+              f.group
+                ? <option key={i} disabled>{f.group}</option>
+                : <option key={i} value={f.value}>{f.label}</option>
+            )}
           </select>
         </Row>
         <Row label="字号">
