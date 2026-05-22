@@ -227,7 +227,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       }
       if(l.type==='text'){
         ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
-        drawTextLayer(ctx,l,false);ctx.restore()
+        drawTextLayer(ctx,l);ctx.restore()
       }
     }
     // 边框
@@ -271,7 +271,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       }
       if(l.type==='decoration'){
         ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
-        drawShape(ctx,l,!!(l.id===selectedId),cx,cy);ctx.restore()
+        drawShape(ctx,l,false,cx,cy);ctx.restore()
       }
       if(l.type==='character'){
         ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
@@ -279,9 +279,15 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       }
       if(l.type==='text'){
         ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
-        drawTextLayer(ctx,l,l.id===selectedId);ctx.restore()
+        drawTextLayer(ctx,l);ctx.restore()
       }
     }
+    // 选中框（始终在所有内容+边框之上）
+    const selLayer=sorted.find(l=>l.id===selectedId&&l.type==='text')
+    if(selLayer) drawSelectionBox(ctx,selLayer)
+    // 装饰选中框
+    const selDecor=sorted.find(l=>l.id===selectedId&&l.type==='decoration')
+    if(selDecor) drawShape(ctx,selDecor,true,cx,cy)
     // 边框（固定盖在内容上方）
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
@@ -339,27 +345,38 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     ctx.restore()
   }
 
-  // ─── 文字 ───
-  function drawTextLayer(ctx,layer,isSelected){
+  // ─── 文字（只画文字内容，不画选中框）───
+  function drawTextLayer(ctx,layer){
     if(!layer.text)return
     const x=layer.textX??cx, y=layer.textY??cy
-    const w=layer.textW??400, h=layer.textH??100
+    const w=layer.textW??400
     const r=layer.textRot??0
     ctx.save(); ctx.translate(x,y); ctx.rotate(r); ctx.globalAlpha=layer.opacity??1
     const fs=(layer.fontSize??24)*2
-    ctx.font=`${layer.bold?'bold':''} ${fs}px "${layer.font??'Cinzel Decorative'}","Noto Serif SC",serif`
+    const fontName=layer.font??'Cinzel Decorative'
+    const dubaiWeightMap={'Dubai Light':'300 ','Dubai':'400 ','Dubai Medium':'500 ','Dubai Bold':'700 '}
+    const fontWeight=dubaiWeightMap[fontName]?dubaiWeightMap[fontName]:(layer.bold?'bold ':'')
+    const fontFamily=dubaiWeightMap[fontName]?'"Dubai"':`"${fontName}"`
+    ctx.font=`${fontWeight}${fs}px ${fontFamily},"MiSans","Noto Serif SC",serif`
     ctx.fillStyle=layer.color??'#e8c97a'; ctx.textAlign='center'; ctx.textBaseline='middle'
     const lines=(layer.text||'').split('\n'), lineH=fs*1.3
     lines.forEach((line,i)=>ctx.fillText(line,0,(i-(lines.length-1)/2)*lineH,w*.95))
-    if(isSelected){
-      ctx.strokeStyle='rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.setLineDash([6,4])
-      ctx.strokeRect(-w/2,-h/2,w,h);ctx.setLineDash([])
-      ctx.strokeStyle='rgba(100,180,255,0.6)';ctx.lineWidth=1.5
-      ctx.beginPath();ctx.moveTo(0,-h/2);ctx.lineTo(0,-h/2-ROT_OFFSET);ctx.stroke()
-      const dH=(lx,ly,isR)=>{ctx.beginPath();ctx.arc(lx,ly,HANDLE_R,0,Math.PI*2);ctx.fillStyle=isR?'#ffd700':'white';ctx.fill();ctx.strokeStyle=isR?'#c8a000':'rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.stroke()}
-      ;[[-w/2,-h/2],[0,-h/2],[w/2,-h/2],[w/2,0],[w/2,h/2],[0,h/2],[-w/2,h/2],[-w/2,0]].forEach(([lx,ly])=>dH(lx,ly,false))
-      dH(0,-h/2-ROT_OFFSET,true)
-    }
+    ctx.restore()
+  }
+
+  // ─── 选中控制框（始终画在所有内容最顶层）───
+  function drawSelectionBox(ctx,layer){
+    const x=layer.textX??cx, y=layer.textY??cy
+    const w=layer.textW??400, h=layer.textH??100
+    const r=layer.textRot??0
+    ctx.save(); ctx.translate(x,y); ctx.rotate(r)
+    ctx.strokeStyle='rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.setLineDash([6,4])
+    ctx.strokeRect(-w/2,-h/2,w,h);ctx.setLineDash([])
+    ctx.strokeStyle='rgba(100,180,255,0.6)';ctx.lineWidth=1.5
+    ctx.beginPath();ctx.moveTo(0,-h/2);ctx.lineTo(0,-h/2-ROT_OFFSET);ctx.stroke()
+    const dH=(lx,ly,isR)=>{ctx.beginPath();ctx.arc(lx,ly,HANDLE_R,0,Math.PI*2);ctx.fillStyle=isR?'#ffd700':'white';ctx.fill();ctx.strokeStyle=isR?'#c8a000':'rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.stroke()}
+    ;[[-w/2,-h/2],[0,-h/2],[w/2,-h/2],[w/2,0],[w/2,h/2],[0,h/2],[-w/2,h/2],[-w/2,0]].forEach(([lx,ly])=>dH(lx,ly,false))
+    dH(0,-h/2-ROT_OFFSET,true)
     ctx.restore()
   }
 
