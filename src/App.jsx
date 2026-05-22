@@ -108,19 +108,15 @@ export default function App() {
   const handleExportCard = async () => {
     const dataUrl = badgeRef.current?.exportPNG()
     if (!dataUrl) return
-    // 先等图片加载再生成卡片
-    const img = new Image()
-    img.onload = async () => {
-      const cardDataUrl = drawDetailCard(dataUrl, cardInfo)
-      if (window.electronAPI) {
-        const result = await window.electronAPI.saveImage({ dataUrl: cardDataUrl, defaultName: '详情卡片.png' })
-        if (result.success) showToast('详情卡片已保存')
-      } else {
-        const a = document.createElement('a'); a.href = cardDataUrl; a.download = '详情卡片.png'; a.click()
-        showToast('详情卡片已导出')
-      }
+    // drawDetailCard 现在是 async，直接 await
+    const cardDataUrl = await drawDetailCard(dataUrl, cardInfo)
+    if (window.electronAPI) {
+      const result = await window.electronAPI.saveImage({ dataUrl: cardDataUrl, defaultName: '详情卡片.png' })
+      if (result.success) showToast('详情卡片已保存')
+    } else {
+      const a = document.createElement('a'); a.href = cardDataUrl; a.download = '详情卡片.png'; a.click()
+      showToast('详情卡片已导出')
     }
-    img.src = dataUrl
   }
 
   const handleInsertIcon = (icon) => {

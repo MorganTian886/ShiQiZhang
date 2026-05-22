@@ -1,9 +1,30 @@
 import React, { useRef, useEffect } from 'react'
 
+// 加载图片工具
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+}
+
 // 生成明日方舟风格详情卡片（对照游戏原版还原）
-export function drawDetailCard(badgeDataUrl, info) {
-  // 卡片尺寸：游戏内约 3:1 横版
+export async function drawDetailCard(badgeDataUrl, info) {
   const CW = 960, CH = 280
+
+  // 先加载章图，计算真实宽高比
+  const badgeImg = badgeDataUrl ? await loadImage(badgeDataUrl) : null
+  const badgeAspect = badgeImg
+    ? badgeImg.naturalWidth / badgeImg.naturalHeight
+    : 5.2 / 6.0  // 默认比例
+
+  const vMargin = 16
+  const badgeH = CH - vMargin * 2
+  const badgeW = Math.round(badgeH * badgeAspect)
+  const leftW = badgeW + vMargin * 2  // 左侧宽度自适应
+
   const canvas = document.createElement('canvas')
   canvas.width = CW; canvas.height = CH
   const ctx = canvas.getContext('2d')
@@ -18,7 +39,6 @@ export function drawDetailCard(badgeDataUrl, info) {
   ctx.strokeRect(0, 0, CW, CH)
 
   // ── 左侧章图区（深色底）──
-  const leftW = 240
   ctx.fillStyle = '#141416'
   ctx.fillRect(0, 0, leftW, CH)
 
@@ -27,14 +47,11 @@ export function drawDetailCard(badgeDataUrl, info) {
   ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(leftW, 0); ctx.lineTo(leftW, CH); ctx.stroke()
 
-  // 章图片居中
-  if (badgeDataUrl) {
-    const imgSize = 210
-    const imgX = (leftW - imgSize) / 2
-    const imgY = (CH - imgSize) / 2
-    const img = new Image()
-    img.src = badgeDataUrl
-    try { ctx.drawImage(img, imgX, imgY, imgSize, imgSize) } catch(e) {}
+  // 章图按正确比例居中
+  if (badgeImg) {
+    const imgX = (leftW - badgeW) / 2
+    const imgY = vMargin
+    ctx.drawImage(badgeImg, imgX, imgY, badgeW, badgeH)
   }
 
   // ── 右侧内容区 ──
@@ -97,32 +114,29 @@ export function drawDetailCard(badgeDataUrl, info) {
   ctx.beginPath(); ctx.moveTo(px, ty); ctx.lineTo(CW - 16, ty); ctx.stroke()
   ty += 10
 
-  // 获得方式标签 + 内容（同一行）
+  // 获得方式标签 + 条件（游戏原版格式）
   const labelText = '获得方式'
-  ctx.font = 'bold 12px "Noto Serif SC", serif'
-  const labelW = ctx.measureText(labelText).width + 20
-  const labelH = 24
+  ctx.font = 'bold 13px "Noto Serif SC", serif'
+  const labelPadX = 14, labelPadY = 6
+  const labelTW = ctx.measureText(labelText).width
+  const labelW = labelTW + labelPadX * 2
+  const labelH = 26
 
-  // 标签背景（深灰圆角）
-  ctx.fillStyle = '#2a2a2e'
-  roundRect(ctx, px, ty, labelW, labelH, 4)
+  // 标签背景（深灰，更接近游戏色）
+  ctx.fillStyle = '#2c2c30'
+  roundRect(ctx, px, ty, labelW, labelH, 3)
   ctx.fill()
-  ctx.strokeStyle = '#4a4a50'
-  ctx.lineWidth = 1
-  roundRect(ctx, px, ty, labelW, labelH, 4)
-  ctx.stroke()
 
   // 标签文字
-  ctx.fillStyle = '#cccccc'
-  ctx.font = 'bold 12px "Noto Serif SC", serif'
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(labelText, px + labelW/2, ty + labelH/2)
-
-  // 获得条件文字
-  ctx.fillStyle = '#e0e0e0'
-  ctx.font = '13px "Noto Serif SC", serif'
+  ctx.fillStyle = '#d0d0d0'
+  ctx.font = 'bold 13px "Noto Serif SC", serif'
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-  ctx.fillText(info.condition || '完成指定挑战', px + labelW + 12, ty + labelH/2)
+  ctx.fillText(labelText, px + labelPadX, ty + labelH/2)
+
+  // 获得条件文字（跟在标签右边，同基线）
+  ctx.fillStyle = '#e8e8e8'
+  ctx.font = '13px "Noto Serif SC", serif'
+  ctx.fillText(info.condition || '完成指定挑战', px + labelW + 14, ty + labelH/2)
 
   return canvas.toDataURL('image/png')
 }
