@@ -61,7 +61,15 @@ export default function App() {
     const copy = {
       ...src,
       id: newId,
-      name: (src.name || '') + ' 副本',
+      name: (() => {
+        // 去掉已有的"副本 N"后缀，加新编号
+        const baseName = (src.name || '').replace(/\s*副本\s*\d*$/, '').trim() || src.type
+        const nums = layers
+          .map(l => { const m = (l.name||'').match(new RegExp('^' + baseName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\s*副本\\s*(\\d*)$')); return m ? (parseInt(m[1])||1) : 0 })
+          .filter(n => n > 0)
+        const next = nums.length ? Math.max(...nums) + 1 : 1
+        return `${baseName} 副本 ${next}`
+      })(),
       zIndex: newZ,
       // 文字/装饰偏移一点，不完全重叠
       textX: src.textX != null ? src.textX + 20 : undefined,
