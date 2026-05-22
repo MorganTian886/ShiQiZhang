@@ -29,7 +29,7 @@ export default function App() {
   const [config, setConfig] = useState(defaultConfig)
   const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('layers')
-  const [cardInfo, setCardInfo] = useState({ code:'MD-001', name:'', condition:'', lore:'' })
+  const [cardInfo, setCardInfo] = useState({ name:'', stars:'3', lore:'', condition:'' })
   const [showIconLib, setShowIconLib] = useState(false)
   const badgeRef = useRef(null)
 

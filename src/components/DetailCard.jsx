@@ -1,121 +1,148 @@
 import React, { useRef, useEffect } from 'react'
 
-// 生成明日方舟风格详情卡片
+// 生成明日方舟风格详情卡片（对照游戏原版还原）
 export function drawDetailCard(badgeDataUrl, info) {
-  const CW = 900, CH = 520
+  // 卡片尺寸：游戏内约 3:1 横版
+  const CW = 960, CH = 280
   const canvas = document.createElement('canvas')
   canvas.width = CW; canvas.height = CH
   const ctx = canvas.getContext('2d')
 
-  // 深色背景
-  ctx.fillStyle = '#0d0e12'
+  // ── 整体背景 ──
+  ctx.fillStyle = '#1c1c1e'
   ctx.fillRect(0, 0, CW, CH)
 
-  // 斜切角装饰框
-  ctx.strokeStyle = '#c8a96e'
+  // 外边框
+  ctx.strokeStyle = '#3a3a3c'
   ctx.lineWidth = 1.5
-  const m = 16, c = 18
-  ctx.beginPath()
-  ctx.moveTo(m+c, m); ctx.lineTo(CW-m-c, m)
-  ctx.lineTo(CW-m, m+c); ctx.lineTo(CW-m, CH-m-c)
-  ctx.lineTo(CW-m-c, CH-m); ctx.lineTo(m+c, CH-m)
-  ctx.lineTo(m, CH-m-c); ctx.lineTo(m, m+c)
-  ctx.closePath(); ctx.stroke()
+  ctx.strokeRect(0, 0, CW, CH)
 
-  // 内边框细线
-  ctx.strokeStyle = 'rgba(200,169,110,0.25)'
+  // ── 左侧章图区（深色底）──
+  const leftW = 240
+  ctx.fillStyle = '#141416'
+  ctx.fillRect(0, 0, leftW, CH)
+
+  // 左右分隔线
+  ctx.strokeStyle = '#3a3a3c'
   ctx.lineWidth = 1
-  const m2 = 22
-  ctx.strokeRect(m2, m2, CW-m2*2, CH-m2*2)
+  ctx.beginPath(); ctx.moveTo(leftW, 0); ctx.lineTo(leftW, CH); ctx.stroke()
 
-  // 顶部标题栏
-  ctx.fillStyle = 'rgba(200,169,110,0.08)'
-  ctx.fillRect(m2, m2, CW-m2*2, 44)
-  ctx.strokeStyle = 'rgba(200,169,110,0.3)'
-  ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(m2, m2+44); ctx.lineTo(CW-m2, m2+44); ctx.stroke()
-
-  // 徽章编号
-  ctx.fillStyle = '#c8a96e'
-  ctx.font = 'bold 13px "Cinzel Decorative", serif'
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-  ctx.fillText(info.code || 'MD-001', m2+12, m2+22)
-
-  // 右上角"蚀刻章"标签
-  ctx.fillStyle = 'rgba(200,169,110,0.15)'
-  const tagW = 64, tagH = 20, tagX = CW-m2-tagW-8, tagY = m2+12
-  ctx.fillRect(tagX, tagY, tagW, tagH)
-  ctx.fillStyle = '#c8a96e'
-  ctx.font = '10px "Noto Serif SC", serif'
-  ctx.textAlign = 'center'
-  ctx.fillText('蚀刻章', tagX+tagW/2, tagY+10)
-
-  // 左侧：章图片
-  const badgeSize = 220
-  const badgeX = m2+20, badgeY = m2+60
+  // 章图片居中
   if (badgeDataUrl) {
+    const imgSize = 210
+    const imgX = (leftW - imgSize) / 2
+    const imgY = (CH - imgSize) / 2
     const img = new Image()
     img.src = badgeDataUrl
-    // 直接绘（同步，dataUrl已加载）
-    try { ctx.drawImage(img, badgeX, badgeY, badgeSize, badgeSize) } catch(e) {}
+    try { ctx.drawImage(img, imgX, imgY, imgSize, imgSize) } catch(e) {}
+  }
+
+  // ── 右侧内容区 ──
+  const rx = leftW  // 右侧起始X
+  const rw = CW - leftW  // 右侧宽度
+
+  // 顶部标题栏（金铜渐变）
+  const titleH = 56
+  const titleGrad = ctx.createLinearGradient(rx, 0, CW, titleH)
+  titleGrad.addColorStop(0, '#b8894a')
+  titleGrad.addColorStop(0.4, '#d4a55a')
+  titleGrad.addColorStop(1, '#8a6030')
+  ctx.fillStyle = titleGrad
+  ctx.fillRect(rx, 0, rw, titleH)
+
+  // 标题栏底部细线
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(rx, titleH); ctx.lineTo(CW, titleH); ctx.stroke()
+
+  // 章名（带引号，白色加粗）
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 20px "Noto Serif SC", serif'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+  const displayName = info.name ? `"${info.name}"` : '"无名之章"'
+  ctx.fillText(displayName, rx + 16, titleH / 2)
+
+  // 星级（右上角）
+  const stars = parseInt(info.stars) || 3
+  const starSize = 18, starPad = 4
+  const starTotalW = stars * (starSize + starPad)
+  let sx = CW - starTotalW - 12
+  for (let i = 0; i < stars; i++) {
+    drawStar(ctx, sx + starSize/2, titleH/2, starSize/2 * 0.9, starSize/2 * 0.42, '#f0c040')
+    sx += starSize + starPad
+  }
+
+  // ── 正文区 ──
+  let ty = titleH + 18
+  const px = rx + 16, pw = rw - 32
+
+  // 描述文本（斜体，灰白）
+  if (info.lore) {
+    ctx.fillStyle = '#cccccc'
+    ctx.font = 'italic 13px "Noto Serif SC", serif'
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    const loreLines = wrapText(ctx, info.lore, pw, 13)
+    loreLines.slice(0, 4).forEach(line => {
+      ctx.fillText(line, px, ty); ty += 19
+    })
   }
 
   // 分隔线
-  const divX = m2+badgeSize+36
-  ctx.strokeStyle = 'rgba(200,169,110,0.2)'
+  ty += 6
+  ctx.strokeStyle = '#3a3a3c'
   ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(divX, m2+60); ctx.lineTo(divX, CH-m2-16); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(px, ty); ctx.lineTo(CW - 16, ty); ctx.stroke()
+  ty += 10
 
-  // 右侧内容区
-  const tx = divX+20, tw = CW-m2-divX-36
-  let ty = m2+70
+  // 获得方式标签 + 内容（同一行）
+  const labelText = '获得方式'
+  ctx.font = 'bold 12px "Noto Serif SC", serif'
+  const labelW = ctx.measureText(labelText).width + 20
+  const labelH = 24
 
-  // 章名
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 22px "Noto Serif SC", serif'
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-  ctx.fillText(info.name || '无名之章', tx, ty)
-  ty += 34
+  // 标签背景（深灰圆角）
+  ctx.fillStyle = '#2a2a2e'
+  roundRect(ctx, px, ty, labelW, labelH, 4)
+  ctx.fill()
+  ctx.strokeStyle = '#4a4a50'
+  ctx.lineWidth = 1
+  roundRect(ctx, px, ty, labelW, labelH, 4)
+  ctx.stroke()
 
-  // 金色细线
-  ctx.strokeStyle = '#c8a96e'; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx+tw*.6, ty); ctx.stroke()
-  ty += 12
+  // 标签文字
+  ctx.fillStyle = '#cccccc'
+  ctx.font = 'bold 12px "Noto Serif SC", serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText(labelText, px + labelW/2, ty + labelH/2)
 
-  // 获得条件标签
-  ctx.fillStyle = '#c8a96e'
-  ctx.font = '11px "Noto Serif SC", serif'
-  ctx.fillText('获得条件', tx, ty); ty += 18
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'
-  ctx.font = '12px "Noto Serif SC", serif'
-  const condLines = wrapText(ctx, info.condition || '完成指定挑战', tw-10, 12)
-  condLines.forEach(line => { ctx.fillText(line, tx, ty); ty += 17 })
-  ty += 8
-
-  // 分隔
-  ctx.strokeStyle = 'rgba(200,169,110,0.15)'; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx+tw, ty); ctx.stroke()
-  ty += 12
-
-  // 背景故事标签
-  ctx.fillStyle = '#c8a96e'
-  ctx.font = '11px "Noto Serif SC", serif'
-  ctx.fillText('背景故事', tx, ty); ty += 18
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'
-  ctx.font = '11px "Noto Serif SC", serif'
-  const loreLines = wrapText(ctx, info.lore || '这是一段关于这枚蚀刻章的故事。', tw-10, 11)
-  loreLines.slice(0, 6).forEach(line => { ctx.fillText(line, tx, ty); ty += 16 })
-
-  // 底部铆钉
-  const nailY = CH-m2-10
-  ;[m2+8, CW-m2-8].forEach(nx => {
-    ;[m2+8, nailY].forEach(ny => {
-      ctx.beginPath(); ctx.arc(nx, ny, 3, 0, Math.PI*2)
-      ctx.fillStyle = '#c8a96e'; ctx.fill()
-    })
-  })
+  // 获得条件文字
+  ctx.fillStyle = '#e0e0e0'
+  ctx.font = '13px "Noto Serif SC", serif'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+  ctx.fillText(info.condition || '完成指定挑战', px + labelW + 12, ty + labelH/2)
 
   return canvas.toDataURL('image/png')
+}
+
+function drawStar(ctx, cx, cy, outerR, innerR, color) {
+  ctx.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outerR : innerR
+    const a = (Math.PI / 5) * i - Math.PI / 2
+    i === 0 ? ctx.moveTo(cx + r*Math.cos(a), cy + r*Math.sin(a))
+             : ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a))
+  }
+  ctx.closePath()
+  ctx.fillStyle = color; ctx.fill()
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y)
+  ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r)
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h)
+  ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r)
+  ctx.arcTo(x,y,x+r,y,r); ctx.closePath()
 }
 
 function wrapText(ctx, text, maxW, fontSize) {
@@ -135,10 +162,10 @@ export default function DetailCardEditor({ info, onChange }) {
     <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <p style={{ fontSize: 10, color: 'var(--text-dim)' }}>导出时生成官方风格详情卡片</p>
       {[
-        { key: 'code',      label: '编号',     placeholder: 'MD-001' },
-        { key: 'name',      label: '章名',     placeholder: '无名之章' },
-        { key: 'condition', label: '获得条件', placeholder: '完成指定挑战' },
-        { key: 'lore',      label: '背景故事', placeholder: '这里写故事...' },
+        { key: 'name',      label: '章名',     placeholder: '六年的求索与希冀' },
+        { key: 'stars',     label: '星级(1-3)', placeholder: '3' },
+        { key: 'lore',      label: '描述文本', placeholder: '颁发给您的2190日纪念蚀刻章。六年以来...' },
+        { key: 'condition', label: '获得方式', placeholder: '苏醒满2190天' },
       ].map(({ key, label, placeholder }) => (
         <label key={key} style={{ display:'flex', flexDirection:'column', gap:3, fontSize:11, color:'var(--text-secondary)' }}>
           {label}
