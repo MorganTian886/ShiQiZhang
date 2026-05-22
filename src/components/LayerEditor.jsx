@@ -2,8 +2,12 @@ import React, { useRef } from 'react'
 import s from './LayerEditor.module.css'
 
 const BG_TYPES = [
-  { value: 'arknights',       label: '🌐 明日方舟' },
   { value: 'stars',           label: '⭐ 星空' },
+  { value: 'watercolor',      label: '🎨 水彩晕染' },
+  { value: 'cyberpunk',       label: '🌆 赛博朋克霓虹' },
+  { value: 'fog',             label: '🌫 云雾/烟雾' },
+  { value: 'marble',          label: '🪨 大理石纹' },
+  { value: 'glow',            label: '✨ 光晕 Glow' },
   { value: 'solid',           label: '◼ 纯色' },
   { group: '── 线性渐变 ──' },
   { value: 'linear',          label: '↗ 自定义角度' },

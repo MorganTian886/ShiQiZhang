@@ -26,7 +26,11 @@ function safeR(v) { return Math.max(2, v||2) }
 function mulberry32(seed) {
   let a=seed; return ()=>{ a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296 }
 }
-function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function hexToRgb(h){
+  try{return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+  catch{return[128,128,128]}
+}
+function hexToRgba(h,a){try{const[r,g,b]=hexToRgb(h);return`rgba(${r},${g},${b},${a})`}catch{return`rgba(128,128,128,${a})`}}
 function blendHex(c1,c2,t){try{const[r1,g1,b1]=hexToRgb(c1),[r2,g2,b2]=hexToRgb(c2);return`rgb(${Math.round(r1+(r2-r1)*t)},${Math.round(g1+(g2-g1)*t)},${Math.round(b1+(b2-b1)*t)})`}catch{return c1}}
 function getRxRy(hexW,hexH){return{rx:safeR(hexW/Math.sqrt(3)),ry:safeR(hexH/2)}}
 
@@ -328,7 +332,131 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       case 'pattern_hex':{fill(c1);const hs=layer.patternSize??20;ctx.strokeStyle=c2;ctx.lineWidth=1.5;for(let row=-2;row<ch/hs+2;row++){for(let col=-2;col<cw/(hs*1.732)+2;col++){const hx=col*hs*1.732+(row%2)*hs*.866,hy=row*hs*1.5;ctx.beginPath();for(let k=0;k<6;k++){const ka=(Math.PI/3)*k-Math.PI/6;k===0?ctx.moveTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka)):ctx.lineTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))}ctx.closePath();ctx.stroke()}};break}
       case 'pattern_stripe':{fill(c1);const sz=layer.patternSize??20;ctx.fillStyle=c2;for(let x=-ch;x<cw+ch;x+=sz*2){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+sz,0);ctx.lineTo(x+sz-ch,ch);ctx.lineTo(x-ch,ch);ctx.closePath();ctx.fill()};break}
       case 'stars':{fill(c1);const rng=mulberry32(42);for(let i=0;i<140;i++){ctx.beginPath();ctx.arc(rng()*cw,rng()*ch,rng()*1.8+.4,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${(rng()*.5+.4).toFixed(2)})`;ctx.fill()};break}
-      case 'arknights':{const g=ctx.createRadialGradient(cx,cy*.75,0,cx,cy,safeR(Math.max(rx,ry)*1.1));g.addColorStop(0,'#1a2640');g.addColorStop(.6,'#0d1520');g.addColorStop(1,'#060c14');fill(g);ctx.strokeStyle='rgba(100,160,255,0.07)';ctx.lineWidth=1;const hs=40;for(let row=-2;row<ch/hs+2;row++){for(let col=-2;col<cw/(hs*1.732)+2;col++){const hx=col*hs*1.732+(row%2)*hs*.866,hy=row*hs*1.5;ctx.beginPath();for(let k=0;k<6;k++){const ka=(Math.PI/3)*k-Math.PI/6;k===0?ctx.moveTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka)):ctx.lineTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))}ctx.closePath();ctx.stroke()}};const halo=ctx.createRadialGradient(cx,cy*.85,0,cx,cy*.85,safeR(Math.max(rx,ry)*.6));halo.addColorStop(0,'rgba(80,160,255,0.2)');halo.addColorStop(1,'rgba(80,160,255,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,cw,ch);break}
+      case 'watercolor':{
+        // 水彩晕染：多层柔和径向渐变叠加
+        fill(c1)
+        const rng1=mulberry32(77)
+        for(let i=0;i<8;i++){
+          const bx=rng1()*cw, by=rng1()*ch
+          const br=safeR((rng1()*.5+.3)*Math.max(rx,ry))
+          const g=ctx.createRadialGradient(bx,by,0,bx,by,br)
+          const [r1,g1,b1]=hexToRgb(c1), [r2,g2,b2]=hexToRgb(c2)
+          const t=rng1()
+          const rc=Math.round(r1+(r2-r1)*t), gc=Math.round(g1+(g2-g1)*t), bc=Math.round(b1+(b2-b1)*t)
+          g.addColorStop(0,`rgba(${rc},${gc},${bc},${(rng1()*.4+.2).toFixed(2)})`)
+          g.addColorStop(1,'rgba(0,0,0,0)')
+          ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch)
+        }
+        // 边缘羽化
+        const eg=ctx.createRadialGradient(cx,cy,Math.min(rx,ry)*.3,cx,cy,Math.max(rx,ry)*1.1)
+        eg.addColorStop(0,'rgba(255,255,255,0)'); eg.addColorStop(1,'rgba(0,0,0,0.25)')
+        ctx.fillStyle=eg; ctx.fillRect(0,0,cw,ch)
+        break
+      }
+      case 'cyberpunk':{
+        // 赛博朋克霓虹：深色底+霓虹扫光+网格线
+        fill(c1||'#050510')
+        // 网格
+        ctx.strokeStyle='rgba(0,255,200,0.08)'; ctx.lineWidth=1
+        const gs=30
+        for(let x=0;x<cw;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ch);ctx.stroke()}
+        for(let y=0;y<ch;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cw,y);ctx.stroke()}
+        // 霓虹光带
+        const nc1=c2||'#ff00aa', nc2=c1||'#00ffcc'
+        const ng1=ctx.createLinearGradient(0,cy,cw,cy)
+        ng1.addColorStop(0,'rgba(0,0,0,0)')
+        ng1.addColorStop(0.3,hexToRgba(nc1,0.18))
+        ng1.addColorStop(0.5,hexToRgba(nc2,0.28))
+        ng1.addColorStop(0.7,hexToRgba(nc1,0.18))
+        ng1.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=ng1; ctx.fillRect(0,0,cw,ch)
+        // 顶部/底部扫光
+        const ng2=ctx.createLinearGradient(cx,0,cx,ch)
+        ng2.addColorStop(0,hexToRgba(nc2,0.15))
+        ng2.addColorStop(0.4,'rgba(0,0,0,0)')
+        ng2.addColorStop(0.6,'rgba(0,0,0,0)')
+        ng2.addColorStop(1,hexToRgba(nc1,0.15))
+        ctx.fillStyle=ng2; ctx.fillRect(0,0,cw,ch)
+        // 中心光点
+        const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)*.5))
+        cg.addColorStop(0,hexToRgba(nc2,0.12)); cg.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=cg; ctx.fillRect(0,0,cw,ch)
+        break
+      }
+      case 'fog':{
+        // 云雾：多层柔和椭圆光斑叠加
+        fill(c1||'#1a1a2e')
+        const rng2=mulberry32(99)
+        const fogColor=c2||'#8899cc'
+        for(let i=0;i<16;i++){
+          const fx=rng2()*cw, fy=rng2()*ch
+          const fr=safeR((rng2()*.5+.25)*Math.max(rx,ry))
+          const fg=ctx.createRadialGradient(fx,fy,0,fx,fy,fr)
+          fg.addColorStop(0,hexToRgba(fogColor, rng2()*.22+.06))
+          fg.addColorStop(0.6,hexToRgba(fogColor, rng2()*.06+.01))
+          fg.addColorStop(1,'rgba(0,0,0,0)')
+          ctx.fillStyle=fg; ctx.fillRect(0,0,cw,ch)
+        }
+        // 整体雾气层
+        const overallFog=ctx.createRadialGradient(cx,cy*0.6,0,cx,cy,safeR(Math.max(rx,ry)))
+        overallFog.addColorStop(0,hexToRgba(fogColor,0.12))
+        overallFog.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=overallFog; ctx.fillRect(0,0,cw,ch)
+        break
+      }
+      case 'marble':{
+        // 大理石：多层正弦条纹叠加模拟纹理
+        fill(c1||'#e8e4dc')
+        const freq=(layer.patternSize??3)
+        const lines=60
+        for(let i=0;i<lines;i++){
+          const t=i/lines
+          // 用正弦函数生成弯曲条纹
+          const yBase=t*ch
+          const amp=ch*0.06
+          ctx.beginPath()
+          for(let x=0;x<=cw;x+=4){
+            const wave=Math.sin(x/cw*freq*Math.PI+t*Math.PI*2.3)*amp
+                      +Math.sin(x/cw*freq*1.7*Math.PI+t*4.1)*amp*.4
+            const y=yBase+wave
+            x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)
+          }
+          const alpha=Math.abs(Math.sin(t*Math.PI*freq+0.5))*0.18+0.02
+          ctx.strokeStyle=hexToRgba(c2||'#7a7570',alpha)
+          ctx.lineWidth=1+Math.abs(Math.sin(t*5))*2
+          ctx.stroke()
+        }
+        // 叠加渐变增加深度感
+        const mg=ctx.createLinearGradient(0,0,cw,ch)
+        mg.addColorStop(0,hexToRgba(c1||'#e8e4dc',0.3))
+        mg.addColorStop(0.5,'rgba(255,255,255,0.1)')
+        mg.addColorStop(1,hexToRgba(c2||'#7a7570',0.2))
+        ctx.fillStyle=mg; ctx.fillRect(0,0,cw,ch)
+        break
+      }
+      case 'glow':{
+        // 光晕：中心强光+多色光圈
+        fill(c1||'#0a0818')
+        // 主光晕
+        const gg=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)*.9))
+        gg.addColorStop(0,hexToRgba(c2||'#ffffff',0.35))
+        gg.addColorStop(0.3,hexToRgba(c2||'#ffffff',0.1))
+        gg.addColorStop(0.6,hexToRgba(c2||'#ffffff',0.03))
+        gg.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=gg; ctx.fillRect(0,0,cw,ch)
+        // 光圈
+        for(let i=1;i<=3;i++){
+          const gr=safeR(Math.max(rx,ry)*i*.28)
+          ctx.beginPath(); ctx.arc(cx,cy,gr,0,Math.PI*2)
+          ctx.strokeStyle=hexToRgba(c2||'#ffffff', 0.12/i)
+          ctx.lineWidth=i*3; ctx.stroke()
+        }
+        // 边缘暗角
+        const vg=ctx.createRadialGradient(cx,cy,Math.min(rx,ry)*.5,cx,cy,Math.max(rx,ry)*1.2)
+        vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.5)')
+        ctx.fillStyle=vg; ctx.fillRect(0,0,cw,ch)
+        break
+      }
       case 'image':{if(layer.image){const img=layer.image;const sc=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);ctx.drawImage(img,(cw-img.naturalWidth*sc)/2,(ch-img.naturalHeight*sc)/2,img.naturalWidth*sc,img.naturalHeight*sc)};break}
     }
     ctx.restore()
