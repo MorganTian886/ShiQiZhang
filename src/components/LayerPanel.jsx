@@ -15,7 +15,7 @@ const LAYER_LABELS = {
   text: '文字',
 }
 
-export default function LayerPanel({ layers, selectedId, onSelect, onChange, onAdd, onDelete, onReorder, onSwap }) {
+export default function LayerPanel({ layers, selectedId, onSelect, onChange, onAdd, onDelete, onReorder, onSwap, onDuplicate }) {
   const sorted = [...layers].sort((a, b) => b.zIndex - a.zIndex)
 
   const moveUp = (id) => {
@@ -58,6 +58,13 @@ export default function LayerPanel({ layers, selectedId, onSelect, onChange, onA
                 onClick={e => { e.stopPropagation(); onChange(layer.id, { visible: !layer.visible }) }}
                 title="显示/隐藏"
               >👁</button>
+              {['text','decoration','character'].includes(layer.type) && (
+                <button
+                  className={s.dup}
+                  onClick={e => { e.stopPropagation(); onDuplicate(layer.id) }}
+                  title="复制图层"
+                >⧉</button>
+              )}
               <button
                 className={s.del}
                 onClick={e => { e.stopPropagation(); onDelete(layer.id) }}

@@ -80,3 +80,18 @@
 .controls button:hover { background: var(--bg-card); color: var(--text-primary); }
 .visOff { opacity: 0.3; }
 .del:hover { color: #ff5555 !important; }
+
+.dup {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.dup:hover {
+  background: var(--bg-card);
+  color: var(--gold);
+}

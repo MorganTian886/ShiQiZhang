@@ -52,6 +52,26 @@ export default function App() {
     setSelectedId(null)
   }
 
+  const duplicateLayer = (id) => {
+    const src = layers.find(l => l.id === id)
+    if (!src) return
+    const newId = ++nextId
+    const newZ = Math.max(...layers.map(l => l.zIndex), 0) + 1
+    const copy = {
+      ...src,
+      id: newId,
+      name: (src.name || '') + ' 副本',
+      zIndex: newZ,
+      // 文字/装饰偏移一点，不完全重叠
+      textX: src.textX != null ? src.textX + 20 : undefined,
+      textY: src.textY != null ? src.textY + 20 : undefined,
+      shapeX: src.shapeX != null ? src.shapeX + 20 : undefined,
+      shapeY: src.shapeY != null ? src.shapeY + 20 : undefined,
+    }
+    setLayers(prev => [...prev, copy])
+    setSelectedId(newId)
+  }
+
   const changeLayer = (id, patch) => setLayers(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
   const reorderLayer = (id, newZ) => setLayers(prev => prev.map(l => l.id === id ? { ...l, zIndex: newZ } : l))
   
@@ -154,7 +174,7 @@ export default function App() {
         <div className={s.sideContent}>
           {tab === 'layers' && <>
             <LayerPanel layers={layers} selectedId={selectedId} onSelect={setSelectedId}
-              onChange={changeLayer} onAdd={addLayer} onDelete={deleteLayer} onReorder={reorderLayer} onSwap={swapLayers} />
+              onChange={changeLayer} onAdd={addLayer} onDelete={deleteLayer} onReorder={reorderLayer} onSwap={swapLayers} onDuplicate={duplicateLayer} />
             <LayerEditor layer={selectedLayer} onChange={changeLayer} />
           </>}
           {tab === 'border' && <BorderPanel config={config} onChange={setConfig} />}
