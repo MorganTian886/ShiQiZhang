@@ -15,23 +15,19 @@ const LAYER_LABELS = {
   text: '文字',
 }
 
-export default function LayerPanel({ layers, selectedId, onSelect, onChange, onAdd, onDelete, onReorder }) {
+export default function LayerPanel({ layers, selectedId, onSelect, onChange, onAdd, onDelete, onReorder, onSwap }) {
   const sorted = [...layers].sort((a, b) => b.zIndex - a.zIndex)
 
   const moveUp = (id) => {
     const idx = sorted.findIndex(l => l.id === id)
     if (idx <= 0) return
-    const a = sorted[idx], b = sorted[idx - 1]
-    onReorder(a.id, b.zIndex + 1)
-    onReorder(b.id, a.zIndex - 1)
+    onSwap(sorted[idx].id, sorted[idx - 1].id)
   }
 
   const moveDown = (id) => {
     const idx = sorted.findIndex(l => l.id === id)
     if (idx >= sorted.length - 1) return
-    const a = sorted[idx], b = sorted[idx + 1]
-    onReorder(a.id, b.zIndex - 1)
-    onReorder(b.id, a.zIndex + 1)
+    onSwap(sorted[idx].id, sorted[idx + 1].id)
   }
 
   return (

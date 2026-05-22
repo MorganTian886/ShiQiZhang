@@ -54,6 +54,18 @@ export default function App() {
 
   const changeLayer = (id, patch) => setLayers(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
   const reorderLayer = (id, newZ) => setLayers(prev => prev.map(l => l.id === id ? { ...l, zIndex: newZ } : l))
+  
+  // 交换两个图层的zIndex（原子操作，一次setState）
+  const swapLayers = (idA, idB) => setLayers(prev => {
+    const a = prev.find(l => l.id === idA)
+    const b = prev.find(l => l.id === idB)
+    if (!a || !b) return prev
+    return prev.map(l => {
+      if (l.id === idA) return { ...l, zIndex: b.zIndex }
+      if (l.id === idB) return { ...l, zIndex: a.zIndex }
+      return l
+    })
+  })
 
   const handleExport = async () => {
     const dataUrl = badgeRef.current?.exportPNG()
@@ -142,7 +154,7 @@ export default function App() {
         <div className={s.sideContent}>
           {tab === 'layers' && <>
             <LayerPanel layers={layers} selectedId={selectedId} onSelect={setSelectedId}
-              onChange={changeLayer} onAdd={addLayer} onDelete={deleteLayer} onReorder={reorderLayer} />
+              onChange={changeLayer} onAdd={addLayer} onDelete={deleteLayer} onReorder={reorderLayer} onSwap={swapLayers} />
             <LayerEditor layer={selectedLayer} onChange={changeLayer} />
           </>}
           {tab === 'border' && <BorderPanel config={config} onChange={setConfig} />}
