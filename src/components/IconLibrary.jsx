@@ -47,8 +47,8 @@ const TABS = {
 }
 
 export default function IconLibrary({ onInsert }) {
-  const [tab, setTab] = useState('职业')
-  const { icons } = TABS[tab]
+  const [tab, setTab] = useState('职业(透明)')
+  const { icons } = TABS[tab] || TABS['职业(透明)']
 
   const handleInsert = (icon) => {
     const src = `/icons/${icon.dir}/${icon.file}`
