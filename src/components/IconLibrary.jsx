@@ -50,7 +50,6 @@ export default function IconLibrary({ onInsert }) {
 
   return (
     <div className={s.library}>
-      <p className={s.tip}>图标来自 PRTS Wiki，需手动下载放入<br/><code>public/icons/jobs/</code> 和 <code>public/icons/factions/</code></p>
       <div className={s.tabs}>
         {Object.keys(TABS).map(t => (
           <button key={t} className={tab === t ? s.active : ''} onClick={() => setTab(t)}>{t}</button>
