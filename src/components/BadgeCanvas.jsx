@@ -210,15 +210,27 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     const outerW=safeR(config.outerBorderWidth??30),gapW=safeR(config.gapWidth??24),innerW=safeR(config.innerBorderWidth??12),innerLineW=Math.max(0,config.innerLineWidth??3)
     const R0={rx:baseRx,ry:baseRy},R1={rx:safeR(R0.rx-outerW),ry:safeR(R0.ry-outerW)},R2={rx:safeR(R1.rx-gapW),ry:safeR(R1.ry-gapW)},R3={rx:safeR(R2.rx-innerW),ry:safeR(R2.ry-innerW)},R4={rx:safeR(R3.rx-innerLineW*2),ry:safeR(R3.ry-innerLineW*2)}
     const sorted=[...(layers||[])].sort((a,b)=>a.zIndex-b.zIndex)
-    ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='background') continue;drawBg(ctx,cx,cy,CW,CH,R3,hexRot,l)}
-    ctx.restore()
-    ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='decoration') continue;drawShape(ctx,l,false,cx,cy)}
-    ctx.restore()
-    ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='character') continue;drawCharacter(ctx,cx,cy,R3,l)}
-    ctx.restore()
+    // 按zIndex统一渲染（背景/装饰/人物/文字混合，边框固定盖在上方）
+    for(const l of sorted){
+      if(!l.visible) continue
+      if(l.type==='background'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
+        drawBg(ctx,cx,cy,CW,CH,R3,hexRot,l);ctx.restore()
+      }
+      if(l.type==='decoration'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
+        drawShape(ctx,l,false,cx,cy);ctx.restore()
+      }
+      if(l.type==='character'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
+        drawCharacter(ctx,cx,cy,R3,l);ctx.restore()
+      }
+      if(l.type==='text'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
+        drawTextLayer(ctx,l,false);ctx.restore()
+      }
+    }
+    // 边框
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
     ctx.save();ctx.beginPath()
@@ -228,9 +240,6 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     if(config.innerBorderSolid){ctx.fillStyle=ic1}else{const g=ctx.createLinearGradient(cx-R2.rx,cy-R2.ry,cx+R2.rx,cy+R2.ry);g.addColorStop(0,ic1);g.addColorStop(.4,ic2);g.addColorStop(1,ic1);ctx.fillStyle=g}
     ctx.fill('evenodd');ctx.restore()
     if(innerLineW>0&&R4.rx>4){ctx.save();tracePath(ctx,hexPoints(cx,cy,R4.rx,R4.ry,hexRot));ctx.strokeStyle=config.innerLineColor??'rgba(200,169,110,0.5)';ctx.lineWidth=innerLineW;ctx.stroke();ctx.restore()}
-    ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='text') continue;drawTextLayer(ctx,l,false)}
-    ctx.restore()
   }, [config, layers, CW, CH, cx, cy, baseRx, baseRy])
 
   const draw = useCallback(() => {
@@ -253,25 +262,27 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
 
     const sorted=[...(layers||[])].sort((a,b)=>a.zIndex-b.zIndex)
 
-    // 背景（clip到R3）
-    ctx.save(); tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot)); ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='background') continue; drawBg(ctx,cx,cy,CW,CH,R3,hexRot,l)}
-    ctx.restore()
-
-    // 装饰几何（clip到R3）
-    ctx.save(); tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot)); ctx.clip()
+    // 按zIndex统一渲染（背景/装饰/人物/文字混合，边框固定盖在上方）
     for(const l of sorted){
-      if(!l.visible||l.type!=='decoration') continue
-      drawShape(ctx,l,!!(l.id===selectedId),cx,cy)
+      if(!l.visible) continue
+      if(l.type==='background'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
+        drawBg(ctx,cx,cy,CW,CH,R3,hexRot,l);ctx.restore()
+      }
+      if(l.type==='decoration'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R3.rx,R3.ry,hexRot));ctx.clip()
+        drawShape(ctx,l,!!(l.id===selectedId),cx,cy);ctx.restore()
+      }
+      if(l.type==='character'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
+        drawCharacter(ctx,cx,cy,R3,l);ctx.restore()
+      }
+      if(l.type==='text'){
+        ctx.save();tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot));ctx.clip()
+        drawTextLayer(ctx,l,l.id===selectedId);ctx.restore()
+      }
     }
-    ctx.restore()
-
-    // 人物（clip到R0）
-    ctx.save(); tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot)); ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='character') continue; drawCharacter(ctx,cx,cy,R3,l)}
-    ctx.restore()
-
-    // 边框
+    // 边框（固定盖在内容上方）
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
     ctx.save(); ctx.beginPath()
@@ -287,11 +298,6 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       ctx.save();tracePath(ctx,hexPoints(cx,cy,R4.rx,R4.ry,hexRot))
       ctx.strokeStyle=config.innerLineColor??'rgba(200,169,110,0.5)';ctx.lineWidth=innerLineW;ctx.stroke();ctx.restore()
     }
-
-    // 文字（clip到R0）
-    ctx.save(); tracePath(ctx,hexPoints(cx,cy,R0.rx,R0.ry,hexRot)); ctx.clip()
-    for(const l of sorted){if(!l.visible||l.type!=='text') continue; drawTextLayer(ctx,l,l.id===selectedId)}
-    ctx.restore()
 
   }, [config, layers, selectedId, CW, CH, cx, cy, baseRx, baseRy])
 
