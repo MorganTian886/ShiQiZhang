@@ -55,6 +55,7 @@ export default function App() {
   const duplicateLayer = (id) => {
     const src = layers.find(l => l.id === id)
     if (!src) return
+    nextId = Math.max(nextId, ...layers.map(l => l.id || 0))
     const newId = ++nextId
     const newZ = Math.max(...layers.map(l => l.zIndex), 0) + 1
     const copy = {
@@ -147,6 +148,9 @@ export default function App() {
         // 过滤掉有图片占位符的图层（图片需重新上传）
         const restored = savedLayers.map(l => ({ ...l, image: undefined }))
         const hasImages = savedLayers.some(l => l._hasImage)
+        // 恢复后更新 nextId，防止新图层 id 与已有图层冲突
+        const maxId = Math.max(...restored.map(l => l.id || 0), 10)
+        nextId = maxId
         setLayers(restored)
         if (savedConfig) setConfig(savedConfig)
         const msg = hasImages
