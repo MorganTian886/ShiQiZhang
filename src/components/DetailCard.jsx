@@ -41,12 +41,15 @@ export function drawDetailCard(badgeDataUrl, info) {
   const rx = leftW  // 右侧起始X
   const rw = CW - leftW  // 右侧宽度
 
-  // 顶部标题栏（金铜渐变）
+  // 顶部标题栏（可自定义渐变色）
   const titleH = 56
+  const tc1 = info.titleColor1 || '#b8894a'
+  const tc2 = info.titleColor2 || '#d4a55a'
+  const tc3 = info.titleColor3 || '#8a6030'
   const titleGrad = ctx.createLinearGradient(rx, 0, CW, titleH)
-  titleGrad.addColorStop(0, '#b8894a')
-  titleGrad.addColorStop(0.4, '#d4a55a')
-  titleGrad.addColorStop(1, '#8a6030')
+  titleGrad.addColorStop(0,   tc1)
+  titleGrad.addColorStop(0.4, tc2)
+  titleGrad.addColorStop(1,   tc3)
   ctx.fillStyle = titleGrad
   ctx.fillRect(rx, 0, rw, titleH)
 
@@ -162,10 +165,10 @@ export default function DetailCardEditor({ info, onChange }) {
     <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <p style={{ fontSize: 10, color: 'var(--text-dim)' }}>导出时生成官方风格详情卡片</p>
       {[
-        { key: 'name',      label: '章名',     placeholder: '六年的求索与希冀' },
-        { key: 'stars',     label: '星级(1-3)', placeholder: '3' },
-        { key: 'lore',      label: '描述文本', placeholder: '颁发给您的2190日纪念蚀刻章。六年以来...' },
-        { key: 'condition', label: '获得方式', placeholder: '苏醒满2190天' },
+        { key: 'name',      label: '章名',      placeholder: '六年的求索与希冀' },
+        { key: 'stars',     label: '星级(1-3)',  placeholder: '3' },
+        { key: 'lore',      label: '描述文本',  placeholder: '颁发给您的2190日纪念蚀刻章。六年以来...' },
+        { key: 'condition', label: '获得方式',  placeholder: '苏醒满2190天' },
       ].map(({ key, label, placeholder }) => (
         <label key={key} style={{ display:'flex', flexDirection:'column', gap:3, fontSize:11, color:'var(--text-secondary)' }}>
           {label}
@@ -178,6 +181,29 @@ export default function DetailCardEditor({ info, onChange }) {
           )}
         </label>
       ))}
+      <div style={{padding:'4px 0 0'}}>
+        <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:6}}>标题栏渐变色</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {[
+            {key:'titleColor1', label:'左', def:'#b8894a'},
+            {key:'titleColor2', label:'中', def:'#d4a55a'},
+            {key:'titleColor3', label:'右', def:'#8a6030'},
+          ].map(({key,label,def})=>(
+            <label key={key} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,fontSize:10,color:'var(--text-dim)',cursor:'pointer'}}>
+              {label}
+              <input type="color" value={info[key]||def}
+                onChange={e=>onChange({...info,[key]:e.target.value})}
+                style={{width:36,height:24,border:'1px solid var(--border)',borderRadius:3,padding:1,background:'var(--bg-card)',cursor:'pointer'}}/>
+            </label>
+          ))}
+          <button
+            onClick={()=>onChange({...info,titleColor1:'#b8894a',titleColor2:'#d4a55a',titleColor3:'#8a6030'})}
+            style={{marginLeft:'auto',fontSize:10,color:'var(--text-dim)',background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>
+            重置
+          </button>
+        </div>
+        <div style={{marginTop:6,height:16,borderRadius:3,background:`linear-gradient(to right,${info.titleColor1||'#b8894a'},${info.titleColor2||'#d4a55a'},${info.titleColor3||'#8a6030'})`}}/>
+      </div>
     </div>
   )
 }
