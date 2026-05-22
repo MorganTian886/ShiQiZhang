@@ -606,14 +606,73 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     ctx.restore()
   }
 
-  // ─── 人物 ───
+  // ─── 人物（含镀层效果）───
   function drawCharacter(ctx,cx,cy,R3,layer){
     if(!layer.image)return
     ctx.save();ctx.globalAlpha=layer.opacity??1
     const img=layer.image,scale=layer.scale??1
     const ox=(layer.offsetX??0)*2,oy=(layer.offsetY??0)*2
     const fitH=R3.ry*2*1.15*scale,fitW=(img.naturalWidth/img.naturalHeight)*fitH
-    ctx.drawImage(img,cx-fitW/2+ox,cy-fitH/2+oy,fitW,fitH)
+    const dx=cx-fitW/2+ox, dy=cy-fitH/2+oy
+
+    ctx.drawImage(img,dx,dy,fitW,fitH)
+
+    // 镀层效果
+    if(layer.plating){
+      ctx.save()
+      // clip到人物图片区域（矩形近似）
+      ctx.globalAlpha=(layer.opacity??1)*0.55
+      ctx.globalCompositeOperation='source-atop'
+
+      const platingColors={
+        gold:    ['#ffe066','#c8860a','#ffe8a0','#b06000'],
+        aurora:  ['#cc88ff','#4422cc','#88ffee','#aa44ff'],
+        silver:  ['#ffffff','#8888aa','#ddddee','#6666aa'],
+        crimson: ['#ff4422','#880000','#ffaa88','#cc2200'],
+        void:    ['#9933ff','#330066','#cc66ff','#220044'],
+      }
+      const cols=platingColors[layer.platingType??'gold']
+
+      // 拉丝纹理
+      const stripeCount=Math.ceil(fitH/8)
+      for(let i=0;i<stripeCount;i++){
+        const t=i/stripeCount
+        const sg=ctx.createLinearGradient(dx,dy+t*fitH,dx+fitW,dy+t*fitH)
+        sg.addColorStop(0,cols[0]+'44')
+        sg.addColorStop(0.3,cols[2]+'88')
+        sg.addColorStop(0.7,cols[0]+'44')
+        sg.addColorStop(1,cols[3]+'33')
+        ctx.fillStyle=sg
+        ctx.fillRect(dx,dy+t*fitH,fitW,fitH/stripeCount+1)
+      }
+
+      // 光泽扫光
+      const sweepG=ctx.createLinearGradient(dx,dy,dx+fitW,dy+fitH)
+      sweepG.addColorStop(0,'rgba(255,255,255,0)')
+      sweepG.addColorStop(0.35,'rgba(255,255,255,0)')
+      sweepG.addColorStop(0.45,cols[2]+'cc')
+      sweepG.addColorStop(0.55,'rgba(255,255,255,0)')
+      sweepG.addColorStop(1,'rgba(255,255,255,0)')
+      ctx.fillStyle=sweepG
+      ctx.fillRect(dx,dy,fitW,fitH)
+
+      ctx.restore()
+
+      // 边缘粒子
+      ctx.save()
+      ctx.globalAlpha=(layer.opacity??1)*0.7
+      const rng=mulberry32(layer.id??42)
+      for(let i=0;i<30;i++){
+        const px=dx+rng()*fitW
+        const py=dy+rng()*fitH
+        const pr=rng()*3+1
+        ctx.beginPath();ctx.arc(px,py,pr,0,Math.PI*2)
+        ctx.fillStyle=cols[Math.floor(rng()*cols.length)]+'cc'
+        ctx.fill()
+      }
+      ctx.restore()
+    }
+
     ctx.restore()
   }
 

@@ -1,0 +1,22 @@
+.wrap { padding: 8px 0; }
+.hint { font-size: 10px; color: var(--text-dim); padding: 0 14px 8px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 0 10px; }
+.card {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 6px; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+}
+.card:hover { border-color: var(--gold-dim); background: rgba(200,169,110,0.06); }
+.card span { font-size: 10px; color: var(--text-secondary); }
+.preview {
+  width: 48px; height: 48px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.previewGap {
+  width: 36px; height: 36px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.previewInner {
+  width: 26px; height: 26px; border-radius: 2px;
+}

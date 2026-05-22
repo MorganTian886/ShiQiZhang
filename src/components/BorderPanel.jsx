@@ -1,11 +1,18 @@
 import React from 'react'
 import s from './BorderPanel.module.css'
+import BorderTemplates from './BorderTemplates'
 
-export default function BorderPanel({ config, onChange }) {
+export default function BorderPanel({ config, onChange, onApplyTemplate }) {
   const set = (k, v) => onChange({ ...config, [k]: v })
 
   return (
     <div className={s.panel}>
+
+      {/* 边框模板 */}
+      <div className={s.section}>
+        <div className={s.title}>快速套用模板</div>
+        <BorderTemplates onApply={onApplyTemplate} />
+      </div>
 
       {/* 六边形尺寸 */}
       <div className={s.section}>

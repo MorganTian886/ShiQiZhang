@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import BadgeCanvas from './components/BadgeCanvas'
+import IconLibrary from './components/IconLibrary'
+import DetailCardEditor, { drawDetailCard } from './components/DetailCard'
 import LayerPanel from './components/LayerPanel'
 import LayerEditor from './components/LayerEditor'
 import BorderPanel from './components/BorderPanel'
@@ -27,6 +29,8 @@ export default function App() {
   const [config, setConfig] = useState(defaultConfig)
   const [toast, setToast] = useState(null)
   const [tab, setTab] = useState('layers')
+  const [cardInfo, setCardInfo] = useState({ code:'MD-001', name:'', condition:'', lore:'' })
+  const [showIconLib, setShowIconLib] = useState(false)
   const badgeRef = useRef(null)
 
   const showToast = (msg, type = 'success') => {
@@ -95,6 +99,44 @@ export default function App() {
       return l
     })
   })
+
+  const applyTemplate = (tplConfig) => {
+    setConfig(prev => ({ ...prev, ...tplConfig }))
+    showToast('已套用边框模板')
+  }
+
+  const handleExportCard = async () => {
+    const dataUrl = badgeRef.current?.exportPNG()
+    if (!dataUrl) return
+    // 先等图片加载再生成卡片
+    const img = new Image()
+    img.onload = async () => {
+      const cardDataUrl = drawDetailCard(dataUrl, cardInfo)
+      if (window.electronAPI) {
+        const result = await window.electronAPI.saveImage({ dataUrl: cardDataUrl, defaultName: '详情卡片.png' })
+        if (result.success) showToast('详情卡片已保存')
+      } else {
+        const a = document.createElement('a'); a.href = cardDataUrl; a.download = '详情卡片.png'; a.click()
+        showToast('详情卡片已导出')
+      }
+    }
+    img.src = dataUrl
+  }
+
+  const handleInsertIcon = (icon) => {
+    nextId = Math.max(nextId, ...layers.map(l => l.id||0))
+    const id = ++nextId
+    const zIndex = Math.max(...layers.map(l => l.zIndex), 0) + 1
+    setLayers(prev => [...prev, {
+      id, type: 'decoration', name: icon.label, visible: true, zIndex, opacity: 1,
+      decorType: 'image', image: icon.image,
+      shapeX: 638, shapeY: 732, shapeW: 200, shapeH: 200, shapeRot: 0,
+      shapeFill: '#c8a96e', shapeFilled: true, shapeLineW: 0
+    }])
+    setSelectedId(id)
+    setShowIconLib(false)
+    showToast(`已插入「${icon.label}」图标`)
+  }
 
   const handleExport = async () => {
     const dataUrl = badgeRef.current?.exportPNG()
@@ -182,6 +224,8 @@ export default function App() {
         <div className={s.tabs}>
           <button className={tab === 'layers' ? s.activeTab : ''} onClick={() => setTab('layers')}>图层</button>
           <button className={tab === 'border' ? s.activeTab : ''} onClick={() => setTab('border')}>边框</button>
+          <button className={tab === 'icons'  ? s.activeTab : ''} onClick={() => setTab('icons')}>图标</button>
+          <button className={tab === 'card'   ? s.activeTab : ''} onClick={() => setTab('card')}>卡片</button>
         </div>
         <div className={s.sideContent}>
           {tab === 'layers' && <>
@@ -189,7 +233,18 @@ export default function App() {
               onChange={changeLayer} onAdd={addLayer} onDelete={deleteLayer} onReorder={reorderLayer} onSwap={swapLayers} onDuplicate={duplicateLayer} />
             <LayerEditor layer={selectedLayer} onChange={changeLayer} />
           </>}
-          {tab === 'border' && <BorderPanel config={config} onChange={setConfig} />}
+          {tab === 'border' && <BorderPanel config={config} onChange={setConfig} onApplyTemplate={applyTemplate} />}
+          {tab === 'icons'  && <IconLibrary onInsert={handleInsertIcon} />}
+          {tab === 'card'   && <>
+            <DetailCardEditor info={cardInfo} onChange={setCardInfo} />
+            <div style={{padding:'0 14px 12px'}}>
+              <button onClick={handleExportCard} style={{
+                background:'linear-gradient(135deg,#c8a96e,#a07840)',border:'none',
+                color:'#0a0a0c',padding:'10px',borderRadius:6,fontSize:13,
+                fontWeight:700,width:'100%',cursor:'pointer'
+              }}>↓ 导出详情卡片</button>
+            </div>
+          </>}
         </div>
         <div className={s.sizeNote}>5.2 × 6 cm · 300 DPI · PNG</div>
       </aside>
