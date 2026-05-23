@@ -39,7 +39,7 @@ export async function drawDetailCard(badgeDataUrl, info) {
   ctx.strokeRect(0, 0, CW, CH)
 
   // ── 左侧章图区（灰色，游戏同款）──
-  ctx.fillStyle = '#e4e4e6'
+  ctx.fillStyle = '#464944'
   ctx.fillRect(0, 0, leftW, CH)
 
   // 左右分隔线
