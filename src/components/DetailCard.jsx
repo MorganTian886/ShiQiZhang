@@ -29,21 +29,21 @@ export async function drawDetailCard(badgeDataUrl, info) {
   canvas.width = CW; canvas.height = CH
   const ctx = canvas.getContext('2d')
 
-  // ── 整体背景 ──
-  ctx.fillStyle = '#1c1c1e'
+  // ── 整体背景（白色）──
+  ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, CW, CH)
 
   // 外边框
-  ctx.strokeStyle = '#3a3a3c'
+  ctx.strokeStyle = '#cccccc'
   ctx.lineWidth = 1.5
   ctx.strokeRect(0, 0, CW, CH)
 
-  // ── 左侧章图区（深色底）──
-  ctx.fillStyle = '#141416'
+  // ── 左侧章图区（灰色，游戏同款）──
+  ctx.fillStyle = '#e4e4e6'
   ctx.fillRect(0, 0, leftW, CH)
 
   // 左右分隔线
-  ctx.strokeStyle = '#3a3a3c'
+  ctx.strokeStyle = '#cccccc'
   ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(leftW, 0); ctx.lineTo(leftW, CH); ctx.stroke()
 
@@ -96,9 +96,9 @@ export async function drawDetailCard(badgeDataUrl, info) {
   let ty = titleH + 18
   const px = rx + 16, pw = rw - 32
 
-  // 描述文本（斜体，灰白）
+  // 描述文本（斜体，深灰）
   if (info.lore) {
-    ctx.fillStyle = '#cccccc'
+    ctx.fillStyle = '#444444'
     ctx.font = 'italic 13px "Noto Serif SC", serif'
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'
     const loreLines = wrapText(ctx, info.lore, pw, 13)
@@ -109,7 +109,7 @@ export async function drawDetailCard(badgeDataUrl, info) {
 
   // 分隔线
   ty += 6
-  ctx.strokeStyle = '#3a3a3c'
+  ctx.strokeStyle = '#dddddd'
   ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(px, ty); ctx.lineTo(CW - 16, ty); ctx.stroke()
   ty += 10
@@ -122,19 +122,19 @@ export async function drawDetailCard(badgeDataUrl, info) {
   const labelW = labelTW + labelPadX * 2
   const labelH = 26
 
-  // 标签背景（深灰，更接近游戏色）
-  ctx.fillStyle = '#2c2c30'
+  // 标签背景（深灰色，游戏原版）
+  ctx.fillStyle = '#404040'
   roundRect(ctx, px, ty, labelW, labelH, 3)
   ctx.fill()
 
-  // 标签文字
-  ctx.fillStyle = '#d0d0d0'
+  // 标签文字（白色）
+  ctx.fillStyle = '#ffffff'
   ctx.font = 'bold 13px "Noto Serif SC", serif'
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
   ctx.fillText(labelText, px + labelPadX, ty + labelH/2)
 
-  // 获得条件文字（跟在标签右边，同基线）
-  ctx.fillStyle = '#e8e8e8'
+  // 获得条件文字（深色，白底上）
+  ctx.fillStyle = '#333333'
   ctx.font = '13px "Noto Serif SC", serif'
   ctx.fillText(info.condition || '完成指定挑战', px + labelW + 14, ty + labelH/2)
 
