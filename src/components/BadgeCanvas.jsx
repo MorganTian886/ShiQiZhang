@@ -100,9 +100,26 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
     const img = layer.image
     if (img.naturalWidth > 0 && img.naturalHeight > 0) {
       const sc = Math.min(w / img.naturalWidth, h / img.naturalHeight)
-      ctx.drawImage(img,
-        -img.naturalWidth * sc / 2, -img.naturalHeight * sc / 2,
-        img.naturalWidth * sc, img.naturalHeight * sc)
+      const iw = img.naturalWidth * sc, ih = img.naturalHeight * sc
+      const ix = -iw / 2, iy = -ih / 2
+
+      // 先画原图
+      ctx.drawImage(img, ix, iy, iw, ih)
+
+      // 如果设置了颜色叠加（非 original）
+      if (layer.iconColor && layer.iconColor !== 'original') {
+        ctx.save()
+        ctx.globalCompositeOperation = 'source-atop'
+        ctx.fillStyle = layer.iconColor
+        ctx.globalAlpha = layer.iconColorOpacity ?? 1
+        ctx.fillRect(ix, iy, iw, ih)
+        ctx.restore()
+        // 恢复原图 alpha 结构（multiply 效果）
+        ctx.save()
+        ctx.globalCompositeOperation = 'destination-in'
+        ctx.drawImage(img, ix, iy, iw, ih)
+        ctx.restore()
+      }
     }
     if (isSelected) {
       ctx.strokeStyle='rgba(100,180,255,0.9)';ctx.lineWidth=2;ctx.setLineDash([5,4])
