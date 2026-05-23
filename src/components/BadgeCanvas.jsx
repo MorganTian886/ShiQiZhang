@@ -104,19 +104,30 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
       const ix = -iw / 2, iy = -ih / 2
 
       if (layer.iconColor && layer.iconColor !== 'original') {
-        // offscreen canvas 用原始尺寸，避免缩放误差
+        // 像素级颜色替换：保留原始 alpha，只替换 RGB
         const off = document.createElement('canvas')
-        off.width = img.naturalWidth
-        off.height = img.naturalHeight
+        off.width = img.naturalWidth || 256
+        off.height = img.naturalHeight || 256
         const oc = off.getContext('2d')
-        // 画原图
         oc.drawImage(img, 0, 0)
-        // source-in：用目标色填充有像素的区域
-        oc.globalCompositeOperation = 'source-in'
-        oc.globalAlpha = layer.iconColorOpacity ?? 1
-        oc.fillStyle = layer.iconColor
-        oc.fillRect(0, 0, img.naturalWidth, img.naturalHeight)
-        // 把染色结果缩放画到主画布
+
+        const hex = layer.iconColor.replace('#','')
+        const tR = parseInt(hex.slice(0,2),16)
+        const tG = parseInt(hex.slice(2,4),16)
+        const tB = parseInt(hex.slice(4,6),16)
+        const op = layer.iconColorOpacity ?? 1
+
+        const imgData = oc.getImageData(0, 0, off.width, off.height)
+        const d = imgData.data
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i+3] > 0) {  // 只处理不透明像素
+            d[i]   = Math.round(d[i]   * (1-op) + tR * op)
+            d[i+1] = Math.round(d[i+1] * (1-op) + tG * op)
+            d[i+2] = Math.round(d[i+2] * (1-op) + tB * op)
+            // alpha 不动，保留原始边缘抗锯齿
+          }
+        }
+        oc.putImageData(imgData, 0, 0)
         ctx.drawImage(off, ix, iy, iw, ih)
       } else {
         ctx.drawImage(img, ix, iy, iw, ih)
