@@ -103,22 +103,22 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
       const iw = img.naturalWidth * sc, ih = img.naturalHeight * sc
       const ix = -iw / 2, iy = -ih / 2
 
-      // 先画原图
-      ctx.drawImage(img, ix, iy, iw, ih)
-
-      // 如果设置了颜色叠加（非 original）
       if (layer.iconColor && layer.iconColor !== 'original') {
-        ctx.save()
-        ctx.globalCompositeOperation = 'source-atop'
-        ctx.fillStyle = layer.iconColor
-        ctx.globalAlpha = layer.iconColorOpacity ?? 1
-        ctx.fillRect(ix, iy, iw, ih)
-        ctx.restore()
-        // 恢复原图 alpha 结构（multiply 效果）
-        ctx.save()
-        ctx.globalCompositeOperation = 'destination-in'
+        // 用 offscreen canvas 把图标染色（source-in 保留透明度轮廓+填色）
+        const off = document.createElement('canvas')
+        off.width = Math.ceil(iw); off.height = Math.ceil(ih)
+        const oc = off.getContext('2d')
+        // 先画原图
+        oc.drawImage(img, 0, 0, iw, ih)
+        // source-in：只保留有像素的地方，填成目标色
+        oc.globalCompositeOperation = 'source-in'
+        oc.fillStyle = layer.iconColor
+        oc.globalAlpha = layer.iconColorOpacity ?? 1
+        oc.fillRect(0, 0, iw, ih)
+        ctx.drawImage(off, ix, iy, iw, ih)
+      } else {
+        // 原色直接画
         ctx.drawImage(img, ix, iy, iw, ih)
-        ctx.restore()
       }
     }
     if (isSelected) {
