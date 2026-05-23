@@ -104,20 +104,21 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
       const ix = -iw / 2, iy = -ih / 2
 
       if (layer.iconColor && layer.iconColor !== 'original') {
-        // 用 offscreen canvas 把图标染色（source-in 保留透明度轮廓+填色）
+        // offscreen canvas 用原始尺寸，避免缩放误差
         const off = document.createElement('canvas')
-        off.width = Math.ceil(iw); off.height = Math.ceil(ih)
+        off.width = img.naturalWidth
+        off.height = img.naturalHeight
         const oc = off.getContext('2d')
-        // 先画原图
-        oc.drawImage(img, 0, 0, iw, ih)
-        // source-in：只保留有像素的地方，填成目标色
+        // 画原图
+        oc.drawImage(img, 0, 0)
+        // source-in：用目标色填充有像素的区域
         oc.globalCompositeOperation = 'source-in'
-        oc.fillStyle = layer.iconColor
         oc.globalAlpha = layer.iconColorOpacity ?? 1
-        oc.fillRect(0, 0, iw, ih)
+        oc.fillStyle = layer.iconColor
+        oc.fillRect(0, 0, img.naturalWidth, img.naturalHeight)
+        // 把染色结果缩放画到主画布
         ctx.drawImage(off, ix, iy, iw, ih)
       } else {
-        // 原色直接画
         ctx.drawImage(img, ix, iy, iw, ih)
       }
     }
