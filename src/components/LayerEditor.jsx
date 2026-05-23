@@ -198,36 +198,65 @@ export default function LayerEditor({ layer, onChange }) {
             )}
           </select>
         </Row>
-        <Row label="填充色">
-          <input type="color" value={layer.shapeFill ?? '#c8a96e'}
-            onChange={e => set('shapeFill', e.target.value)} />
-          <span className={s.hexLabel}>{layer.shapeFill ?? '#c8a96e'}</span>
-        </Row>
-        <Row label="仅描边">
-          <label className={s.toggle}>
-            <input type="checkbox" checked={layer.shapeFilled === false}
-              onChange={e => set('shapeFilled', !e.target.checked)} />
-            <span>空心</span>
-          </label>
-        </Row>
-        {layer.shapeFilled === false && (
-          <Row label="线宽">
-            <input type="range" min="1" max="20" step="1" value={layer.shapeLineW ?? 3}
-              onChange={e => set('shapeLineW', +e.target.value)} />
-            <span className={s.val}>{layer.shapeLineW ?? 3}</span>
+        {/* 图片图标：叠色控制 */}
+        {layer.decorType === 'image' && <>
+          <Row label="叠色">
+            <label className={s.toggle}>
+              <input type="checkbox"
+                checked={!!layer.iconColor && layer.iconColor !== 'original'}
+                onChange={e => set('iconColor', e.target.checked ? '#c8a96e' : 'original')} />
+              <span>开启颜色替换</span>
+            </label>
           </Row>
-        )}
-        {layer.shapeFilled !== false && (
-          <Row label="描边色">
-            <input type="color" value={layer.shapeStroke ?? '#ffffff'}
-              onChange={e => set('shapeStroke', e.target.value)} />
-            <Row label="描边宽">
-              <input type="range" min="0" max="16" step="1" value={layer.shapeLineW ?? 0}
-                onChange={e => set('shapeLineW', +e.target.value)} />
-              <span className={s.val}>{layer.shapeLineW ?? 0}</span>
+          {layer.iconColor && layer.iconColor !== 'original' && <>
+            <Row label="颜色">
+              <input type="color" value={layer.iconColor ?? '#c8a96e'}
+                onChange={e => set('iconColor', e.target.value)} />
+              <span className={s.hexLabel}>{layer.iconColor}</span>
             </Row>
+            <Row label="强度">
+              <input type="range" min="0" max="1" step="0.01"
+                value={layer.iconColorOpacity ?? 1}
+                onChange={e => set('iconColorOpacity', parseFloat(e.target.value))} />
+              <span className={s.val}>{Math.round((layer.iconColorOpacity ?? 1)*100)}%</span>
+            </Row>
+          </>}
+        </>}
+
+        {/* 几何图形：填充色/描边 */}
+        {layer.decorType !== 'image' && <>
+          <Row label="填充色">
+            <input type="color" value={layer.shapeFill ?? '#c8a96e'}
+              onChange={e => set('shapeFill', e.target.value)} />
+            <span className={s.hexLabel}>{layer.shapeFill ?? '#c8a96e'}</span>
           </Row>
-        )}
+          <Row label="仅描边">
+            <label className={s.toggle}>
+              <input type="checkbox" checked={layer.shapeFilled === false}
+                onChange={e => set('shapeFilled', !e.target.checked)} />
+              <span>空心</span>
+            </label>
+          </Row>
+          {layer.shapeFilled === false && (
+            <Row label="线宽">
+              <input type="range" min="1" max="20" step="1" value={layer.shapeLineW ?? 3}
+                onChange={e => set('shapeLineW', +e.target.value)} />
+              <span className={s.val}>{layer.shapeLineW ?? 3}</span>
+            </Row>
+          )}
+          {layer.shapeFilled !== false && (
+            <Row label="描边色">
+              <input type="color" value={layer.shapeStroke ?? '#ffffff'}
+                onChange={e => set('shapeStroke', e.target.value)} />
+              <Row label="描边宽">
+                <input type="range" min="0" max="16" step="1" value={layer.shapeLineW ?? 0}
+                  onChange={e => set('shapeLineW', +e.target.value)} />
+                <span className={s.val}>{layer.shapeLineW ?? 0}</span>
+              </Row>
+            </Row>
+          )}
+        </>}
+
         <Row label="旋转">
           <input type="range" min="-3.14159" max="3.14159" step="0.01"
             value={layer.shapeRot ?? 0}
