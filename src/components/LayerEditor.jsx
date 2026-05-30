@@ -267,25 +267,6 @@ export default function LayerEditor({ layer, onChange }) {
 
       {/* ── 人物 ── */}
       {layer.type === 'character' && <>
-        <Row label="镀层">
-          <label className={s.toggle}>
-            <input type="checkbox" checked={!!layer.plating}
-              onChange={e => set('plating', e.target.checked)} />
-            <span>开启镀层效果</span>
-          </label>
-        </Row>
-        {layer.plating && (
-          <Row label="镀层色">
-            <select value={layer.platingType ?? 'gold'}
-              onChange={e => set('platingType', e.target.value)}>
-              <option value="gold">耀金</option>
-              <option value="aurora">极光</option>
-              <option value="silver">精银</option>
-              <option value="crimson">血红</option>
-              <option value="void">虚空紫</option>
-            </select>
-          </Row>
-        )}
         <Row label="立绘">
           <button className={s.uploadBtn} onClick={() => imgRef.current.click()}>
             {layer.image ? '✓ 已上传，替换' : '+ 导入立绘 PNG'}
