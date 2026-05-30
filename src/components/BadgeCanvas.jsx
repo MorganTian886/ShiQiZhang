@@ -578,13 +578,15 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
     if(config.borderPattern && config.borderPattern!=='none'){
-      ctx.save()
-      ctx.beginPath()
-      hexPoints(cx,cy,R1.rx,R1.ry,hexRot).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
-      hexPoints(cx,cy,R2.rx,R2.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
-      ctx.clip('evenodd')
-      drawBorderPattern(ctx,cx,cy,R1,R2,hexRot,config)
-      ctx.restore()
+      const patC=document.createElement('canvas');patC.width=CW;patC.height=CH
+      const patX=patC.getContext('2d')
+      drawBorderPattern(patX,cx,cy,R1,R2,hexRot,config)
+      patX.globalCompositeOperation='destination-in'
+      patX.beginPath()
+      hexPoints(cx,cy,R1.rx,R1.ry,hexRot).forEach(([x,y],i)=>i===0?patX.moveTo(x,y):patX.lineTo(x,y));patX.closePath()
+      hexPoints(cx,cy,R2.rx,R2.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?patX.moveTo(x,y):patX.lineTo(x,y));patX.closePath()
+      patX.fillStyle='rgba(0,0,0,1)';patX.fill('evenodd')
+      ctx.drawImage(patC,0,0)
     }
     ctx.save();ctx.beginPath()
     hexPoints(cx,cy,R2.rx,R2.ry,hexRot).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
@@ -644,6 +646,18 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     // 边框（固定盖在内容上方）
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
+    if(config.borderPattern&&config.borderPattern!=='none'){
+      // offscreen canvas 绘制纹路，再用 destination-in 裁剪到gap区域
+      const patC=document.createElement('canvas');patC.width=CW;patC.height=CH
+      const patX=patC.getContext('2d')
+      drawBorderPattern(patX,cx,cy,R1,R2,hexRot,config)
+      patX.globalCompositeOperation='destination-in'
+      patX.beginPath()
+      hexPoints(cx,cy,R1.rx,R1.ry,hexRot).forEach(([x,y],i)=>i===0?patX.moveTo(x,y):patX.lineTo(x,y));patX.closePath()
+      hexPoints(cx,cy,R2.rx,R2.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?patX.moveTo(x,y):patX.lineTo(x,y));patX.closePath()
+      patX.fillStyle='rgba(0,0,0,1)';patX.fill('evenodd')
+      ctx.drawImage(patC,0,0)
+    }
     ctx.save(); ctx.beginPath()
     hexPoints(cx,cy,R2.rx,R2.ry,hexRot).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.closePath()
     hexPoints(cx,cy,R3.rx,R3.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.closePath()
