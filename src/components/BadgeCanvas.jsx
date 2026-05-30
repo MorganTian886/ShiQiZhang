@@ -483,6 +483,37 @@ function drawBorderPattern(ctx, cx, cy, R1, R2, rot, config) {
       }
       break
     }
+    case 'wave': {
+      // 水波纹：沿gap绘制正弦水波，宁静流动感
+      ctx.lineWidth = 0.9; ctx.lineCap = 'round'
+      const waveRows = 4  // gap内波浪行数
+      for (let row = 0; row < waveRows; row++) {
+        const rowT = (row + 0.5) / waveRows  // 0~1 在gap内的位置
+        for (let s = 0; s < 6; s++) {
+          const [ax,ay] = pts2[s], [bx,by] = pts2[(s+1)%6]
+          const [nx,ny] = sideNormal(s)
+          const offset = gapW * rowT
+          const edgeLen = Math.hypot(bx-ax, by-ay)
+          const tx = (bx-ax)/edgeLen, ty = (by-ay)/edgeLen
+          // 波浪振幅随行数变化
+          const amp = gapW * 0.12 * (1 - Math.abs(rowT - 0.5) * 1.5)
+          const freq = 6 + row  // 频率略有差异
+          ctx.beginPath()
+          const steps = Math.ceil(edgeLen / 3)
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps
+            const ex = ax + tx*t*edgeLen + nx*offset
+            const ey = ay + ty*t*edgeLen + ny*offset
+            const wave = Math.sin(t * Math.PI * freq) * amp
+            const px = ex + nx*wave, py = ey + ny*wave
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+          }
+          ctx.globalAlpha = opacity * (0.4 + row * 0.15)
+          ctx.stroke()
+        }
+      }
+      break
+    }
   }
 }
 
@@ -546,6 +577,15 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
     // 边框
     drawRing(ctx,cx,cy,R0.rx,R0.ry,R1.rx,R1.ry,hexRot,config.outerBorderColor??'#1a1628')
     drawRing(ctx,cx,cy,R1.rx,R1.ry,R2.rx,R2.ry,hexRot,config.gapColor??'#e8e0d0')
+    if(config.borderPattern && config.borderPattern!=='none'){
+      ctx.save()
+      ctx.beginPath()
+      hexPoints(cx,cy,R1.rx,R1.ry,hexRot).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
+      hexPoints(cx,cy,R2.rx,R2.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
+      ctx.clip('evenodd')
+      drawBorderPattern(ctx,cx,cy,R1,R2,hexRot,config)
+      ctx.restore()
+    }
     ctx.save();ctx.beginPath()
     hexPoints(cx,cy,R2.rx,R2.ry,hexRot).forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()
     hexPoints(cx,cy,R3.rx,R3.ry,hexRot).slice().reverse().forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));ctx.closePath()

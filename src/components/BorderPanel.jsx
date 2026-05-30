@@ -109,6 +109,9 @@ export default function BorderPanel({ config, onChange, onApplyTemplate }) {
               <option value="rope">绳纹</option>
               <option value="scrollwork">巴洛克卷草</option>
             </optgroup>
+            <optgroup label="── 自然 ──">
+              <option value="wave">水波纹</option>
+            </optgroup>
           </select>
         </Row>
         {config.borderPattern && config.borderPattern !== 'none' && <>
