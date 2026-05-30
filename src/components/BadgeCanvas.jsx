@@ -384,43 +384,56 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       case 'pattern_stripe':{fill(c1);const sz=layer.patternSize??20;ctx.fillStyle=c2;for(let x=-ch;x<cw+ch;x+=sz*2){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+sz,0);ctx.lineTo(x+sz-ch,ch);ctx.lineTo(x-ch,ch);ctx.closePath();ctx.fill()};break}
       case 'stars':{fill(c1);const rng=mulberry32(42);for(let i=0;i<140;i++){ctx.beginPath();ctx.arc(rng()*cw,rng()*ch,rng()*1.8+.4,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${(rng()*.5+.4).toFixed(2)})`;ctx.fill()};break}
       case 'watercolor':{
-        // 水彩晕染：模拟湿画纸上颜料扩散
+        // 扎染（Tie-dye / Shibori）：同心环+折叠辐射纹
         fill(c1)
-        const rng1=mulberry32(77)
         const [r1c,g1c,b1c]=hexToRgb(c1), [r2c,g2c,b2c]=hexToRgb(c2)
-        // 大块底色晕染（模拟第一遍湿涂）
-        for(let i=0;i<5;i++){
-          const bx=cx+(rng1()-.5)*rx*1.2, by=cy+(rng1()-.5)*ry*1.2
-          const br=safeR((rng1()*.4+.4)*Math.max(rx,ry))
-          const t=rng1()
-          const rc=Math.round(r1c+(r2c-r1c)*t), gc=Math.round(g1c+(g2c-g1c)*t), bc=Math.round(b1c+(b2c-b1c)*t)
-          const wg=ctx.createRadialGradient(bx,by,0,bx,by,br)
-          wg.addColorStop(0,`rgba(${rc},${gc},${bc},0.55)`)
-          wg.addColorStop(0.6,`rgba(${rc},${gc},${bc},0.2)`)
-          wg.addColorStop(1,'rgba(0,0,0,0)')
-          ctx.fillStyle=wg; ctx.fillRect(0,0,cw,ch)
+        const rng1=mulberry32(77)
+        // 多个扎染中心点
+        const centers=[
+          [cx, cy],
+          [cx+rx*0.38, cy-ry*0.3],
+          [cx-rx*0.35, cy+ry*0.25],
+          [cx+rx*0.15, cy+ry*0.42],
+        ]
+        centers.forEach(([pcx,pcy],ci)=>{
+          const maxR=safeR(Math.max(rx,ry)*(0.55+ci*0.1))
+          const ringCount=8+ci*2
+          for(let r=0;r<ringCount;r++){
+            const t=r/ringCount
+            const innerR=maxR*t
+            const outerR=maxR*(t+1/ringCount)
+            // 颜色在c1/c2之间交替+混色
+            const mix=(r%2===0)?t:1-t
+            const [rr,gr,br]=[
+              Math.round(r1c+(r2c-r1c)*mix),
+              Math.round(g1c+(g2c-g1c)*mix),
+              Math.round(b1c+(b2c-b1c)*mix),
+            ]
+            const alpha=0.55-t*0.15
+            const rg=ctx.createRadialGradient(pcx,pcy,innerR,pcx,pcy,outerR)
+            rg.addColorStop(0,`rgba(${rr},${gr},${br},${alpha})`)
+            rg.addColorStop(0.5,`rgba(${rr},${gr},${br},${alpha*0.7})`)
+            rg.addColorStop(1,`rgba(${rr},${gr},${br},0)`)
+            ctx.fillStyle=rg; ctx.fillRect(0,0,cw,ch)
+          }
+        })
+        // 折叠纹（辐射状细线，模拟布料折叠印）
+        const lineCount=24
+        for(let i=0;i<lineCount;i++){
+          const angle=(Math.PI*2/lineCount)*i
+          const len=Math.max(rx,ry)*1.1
+          ctx.beginPath()
+          ctx.moveTo(cx,cy)
+          ctx.lineTo(cx+Math.cos(angle)*len, cy+Math.sin(angle)*len)
+          const t=i/lineCount
+          const [rr,gr,br]=[Math.round(r1c+(r2c-r1c)*t),Math.round(g1c+(g2c-g1c)*t),Math.round(b1c+(b2c-b1c)*t)]
+          ctx.strokeStyle=`rgba(${rr},${gr},${br},0.07)`
+          ctx.lineWidth=1.5; ctx.stroke()
         }
-        // 细小颜料点（模拟颜料积聚）
-        for(let i=0;i<18;i++){
-          const px=rng1()*cw, py=rng1()*ch
-          const pr=safeR((rng1()*.12+.04)*Math.min(rx,ry))
-          const t2=rng1()
-          const rc2=Math.round(r1c+(r2c-r1c)*t2), gc2=Math.round(g1c+(g2c-g1c)*t2), bc2=Math.round(b1c+(b2c-b1c)*t2)
-          const pg=ctx.createRadialGradient(px,py,0,px,py,pr)
-          pg.addColorStop(0,`rgba(${rc2},${gc2},${bc2},0.7)`)
-          pg.addColorStop(0.5,`rgba(${rc2},${gc2},${bc2},0.25)`)
-          pg.addColorStop(1,'rgba(0,0,0,0)')
-          ctx.fillStyle=pg; ctx.fillRect(0,0,cw,ch)
-        }
-        // 边缘水痕（水彩特有的边缘积色）
-        for(let a=0;a<Math.PI*2;a+=Math.PI/8){
-          const ex=cx+Math.cos(a)*(rx*.75+rng1()*rx*.2)
-          const ey=cy+Math.sin(a)*(ry*.75+rng1()*ry*.2)
-          const er=safeR((rng1()*.1+.06)*Math.min(rx,ry))
-          const eg2=ctx.createRadialGradient(ex,ey,0,ex,ey,er)
-          eg2.addColorStop(0,hexToRgba(c2,0.45)); eg2.addColorStop(1,'rgba(0,0,0,0)')
-          ctx.fillStyle=eg2; ctx.fillRect(0,0,cw,ch)
-        }
+        // 全局柔化叠层
+        const sg=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)))
+        sg.addColorStop(0,hexToRgba(c1,0.12)); sg.addColorStop(1,hexToRgba(c2,0.08))
+        ctx.fillStyle=sg; ctx.fillRect(0,0,cw,ch)
         break
       }
       case 'cyberpunk':{
@@ -486,147 +499,178 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
         break
       }
       case 'marble':{
-        // 大理石：多层正弦条纹叠加模拟纹理
-        fill(c1||'#e8e4dc')
-        const freq=(layer.patternSize??3)
-        const lines=60
-        for(let i=0;i<lines;i++){
-          const t=i/lines
-          // 用正弦函数生成弯曲条纹
-          const yBase=t*ch
-          const amp=ch*0.06
+        // 大理石：斜向流动脉络+宽幅色带，明显区别于其他石纹
+        fill(c1||'#f0ece4')
+        const [r1m,g1m,b1m]=hexToRgb(c1||'#f0ece4')
+        const [r2m,g2m,b2m]=hexToRgb(c2||'#5a5048')
+        // 主体：大幅斜向脉络（45°方向，明显扭曲）
+        const veins=12
+        for(let i=0;i<veins;i++){
+          const t=i/veins
+          const baseX=cw*t*1.5-cw*.25
           ctx.beginPath()
-          for(let x=0;x<=cw;x+=4){
-            const wave=Math.sin(x/cw*freq*Math.PI+t*Math.PI*2.3)*amp
-                      +Math.sin(x/cw*freq*1.7*Math.PI+t*4.1)*amp*.4
-            const y=yBase+wave
-            x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)
+          ctx.moveTo(baseX, 0)
+          for(let y=0;y<=ch;y+=3){
+            const x=baseX
+              +Math.sin(y/ch*Math.PI*4+t*6)*cw*.12
+              +Math.sin(y/ch*Math.PI*9+t*11)*cw*.04
+              +Math.sin(y/ch*Math.PI*2+t*3)*cw*.08
+            ctx.lineTo(x,y)
           }
-          const alpha=Math.abs(Math.sin(t*Math.PI*freq+0.5))*0.18+0.02
-          ctx.strokeStyle=hexToRgba(c2||'#7a7570',alpha)
-          ctx.lineWidth=1+Math.abs(Math.sin(t*5))*2
-          ctx.stroke()
+          const thickness=Math.abs(Math.sin(t*7))*8+1
+          const alpha=Math.abs(Math.sin(t*5+1))*0.35+0.08
+          ctx.strokeStyle=hexToRgba(c2||'#5a5048',alpha)
+          ctx.lineWidth=thickness; ctx.stroke()
         }
-        // 叠加渐变增加深度感
-        const mg=ctx.createLinearGradient(0,0,cw,ch)
-        mg.addColorStop(0,hexToRgba(c1||'#e8e4dc',0.3))
-        mg.addColorStop(0.5,'rgba(255,255,255,0.1)')
-        mg.addColorStop(1,hexToRgba(c2||'#7a7570',0.2))
-        ctx.fillStyle=mg; ctx.fillRect(0,0,cw,ch)
+        // 细脉（在粗脉之间加密）
+        for(let i=0;i<30;i++){
+          const t=i/30
+          const baseX=cw*t*1.4-cw*.2+Math.sin(i*2.3)*cw*.05
+          ctx.beginPath(); ctx.moveTo(baseX,0)
+          for(let y=0;y<=ch;y+=5){
+            const x=baseX+Math.sin(y/ch*Math.PI*7+t*9)*cw*.06
+            ctx.lineTo(x,y)
+          }
+          ctx.strokeStyle=hexToRgba(c2||'#5a5048',0.06)
+          ctx.lineWidth=0.5; ctx.stroke()
+        }
+        // 底色光泽
+        const mgl=ctx.createLinearGradient(0,0,cw,ch)
+        mgl.addColorStop(0,'rgba(255,255,255,0.15)')
+        mgl.addColorStop(0.5,'rgba(255,255,255,0.05)')
+        mgl.addColorStop(1,'rgba(0,0,0,0.08)')
+        ctx.fillStyle=mgl; ctx.fillRect(0,0,cw,ch)
         break
       }
       case 'granite':{
-        // 花岗岩：随机斑点+底色
-        fill(c1||'#888880')
+        // 花岗岩：三种矿物颗粒混合，颗粒感强烈，无明显方向性
+        fill(c1||'#9a9490')
         const rng3=mulberry32(123)
-        const speckColors=[c2||'#333330','#ffffff','#cccccc',c1||'#888880']
-        for(let i=0;i<cw*ch/60;i++){
-          const sx=rng3()*cw, sy=rng3()*ch
-          const sr=rng3()*3+0.5
-          const sc=speckColors[Math.floor(rng3()*speckColors.length)]
-          ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2)
-          ctx.fillStyle=hexToRgba(sc, rng3()*.7+.3); ctx.fill()
-        }
-        // 整体色调统一
-        const gtone=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)))
-        gtone.addColorStop(0,hexToRgba(c1||'#888880',0.15))
-        gtone.addColorStop(1,hexToRgba(c2||'#333330',0.2))
-        ctx.fillStyle=gtone; ctx.fillRect(0,0,cw,ch)
+        // 三类矿物颗粒（长石/石英/云母）
+        const minerals=[
+          {color:c2||'#2a2825', minR:1, maxR:5, density:0.4},  // 深色矿物
+          {color:'#ffffff',     minR:0.5, maxR:3, density:0.25}, // 石英白
+          {color:'#d4c8b0',     minR:1, maxR:4, density:0.35},  // 长石米
+        ]
+        minerals.forEach(({color,minR,maxR,density})=>{
+          const count=Math.round(cw*ch*density/120)
+          for(let i=0;i<count;i++){
+            const sx=rng3()*cw, sy=rng3()*ch
+            const sr=rng3()*(maxR-minR)+minR
+            const angle=rng3()*Math.PI
+            // 椭圆颗粒（模拟矿物晶体形状）
+            ctx.save(); ctx.translate(sx,sy); ctx.rotate(angle)
+            ctx.beginPath(); ctx.ellipse(0,0,sr,sr*(0.4+rng3()*.4),0,0,Math.PI*2)
+            ctx.fillStyle=hexToRgba(color,rng3()*.6+.35); ctx.fill()
+            ctx.restore()
+          }
+        })
+        // 整体轻微暗角
+        const gv=ctx.createRadialGradient(cx,cy,Math.min(rx,ry)*.3,cx,cy,safeR(Math.max(rx,ry)*1.1))
+        gv.addColorStop(0,'rgba(255,255,255,0.05)'); gv.addColorStop(1,'rgba(0,0,0,0.12)')
+        ctx.fillStyle=gv; ctx.fillRect(0,0,cw,ch)
         break
       }
       case 'jade':{
-        // 玉石：流动的绿色纹路
+        // 玉石：大色块云状过渡+透明内光，强调温润质感
         fill(c1||'#2d6e4e')
-        const jlines=40
-        for(let i=0;i<jlines;i++){
-          const t=i/jlines
-          ctx.beginPath()
-          ctx.moveTo(0, ch*t)
-          for(let x=0;x<=cw;x+=6){
-            const y=ch*t
-              +Math.sin(x/cw*Math.PI*4+t*7)*ch*.06
-              +Math.sin(x/cw*Math.PI*7+t*11)*ch*.025
-              +Math.sin(x/cw*Math.PI*2.3+t*3.7)*ch*.04
-            x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)
+        const [r1j,g1j,b1j]=hexToRgb(c1||'#2d6e4e')
+        const [r2j,g2j,b2j]=hexToRgb(c2||'#8dd4b0')
+        // 大范围色块云（模拟玉石内部颜色渗透）
+        const jcloud=[
+          [cx*.6,cy*.7,rx*.7],[cx*1.3,cy*.5,rx*.5],
+          [cx*.8,cy*1.3,rx*.6],[cx*1.2,cy*1.2,rx*.55],
+          [cx,cy,rx*.4],
+        ]
+        jcloud.forEach(([jx,jy,jr],i)=>{
+          const jg2=ctx.createRadialGradient(jx,jy,0,jx,jy,safeR(jr))
+          const t=i/jcloud.length
+          const rj=Math.round(r1j+(r2j-r1j)*t), gj=Math.round(g1j+(g2j-g1j)*t), bj=Math.round(b1j+(b2j-b1j)*t)
+          jg2.addColorStop(0,`rgba(${rj},${gj},${bj},0.6)`)
+          jg2.addColorStop(0.5,`rgba(${rj},${gj},${bj},0.2)`)
+          jg2.addColorStop(1,'rgba(0,0,0,0)')
+          ctx.fillStyle=jg2; ctx.fillRect(0,0,cw,ch)
+        })
+        // 少量细脉（区别于大理石的稀疏感）
+        for(let i=0;i<8;i++){
+          const t=i/8, py=ch*t
+          ctx.beginPath(); ctx.moveTo(0,py)
+          for(let x=0;x<=cw;x+=8){
+            ctx.lineTo(x, py+Math.sin(x/cw*Math.PI*3+t*5)*ch*.03+Math.sin(x/cw*Math.PI*7+t*9)*ch*.015)
           }
-          const alpha=Math.abs(Math.sin(t*Math.PI*6))*.12+.02
-          ctx.strokeStyle=hexToRgba(c2||'#a8d8b8',alpha)
-          ctx.lineWidth=1+Math.abs(Math.sin(t*9))*3
-          ctx.stroke()
+          ctx.strokeStyle=hexToRgba(c2||'#8dd4b0',0.25)
+          ctx.lineWidth=Math.abs(Math.sin(t*4))*3+0.5; ctx.stroke()
         }
-        // 半透明光泽
-        const jg=ctx.createRadialGradient(cx*.7,cy*.6,0,cx,cy,safeR(Math.max(rx,ry)))
-        jg.addColorStop(0,hexToRgba(c2||'#c8f0d8',0.22))
-        jg.addColorStop(0.5,hexToRgba(c1||'#2d6e4e',0.05))
-        jg.addColorStop(1,hexToRgba(c2||'#1a4030',0.15))
-        ctx.fillStyle=jg; ctx.fillRect(0,0,cw,ch)
+        // 玉石光泽（强偏光高亮）
+        const jhl=ctx.createRadialGradient(cx*.5,cy*.4,0,cx*.5,cy*.4,safeR(Math.min(rx,ry)*.7))
+        jhl.addColorStop(0,'rgba(255,255,255,0.3)'); jhl.addColorStop(0.4,'rgba(255,255,255,0.06)'); jhl.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=jhl; ctx.fillRect(0,0,cw,ch)
         break
       }
       case 'sandstone':{
-        // 砂岩：水平分层条带
-        fill(c1||'#c8a878')
-        const slayers=30
-        for(let i=0;i<slayers;i++){
-          const t=i/slayers
+        // 砂岩：峡谷截面感，厚实色带+粗犷裂缝+砂粒噪点
+        fill(c1||'#c8a060')
+        const [r1s,g1s,b1s]=hexToRgb(c1||'#c8a060')
+        const [r2s,g2s,b2s]=hexToRgb(c2||'#7a4820')
+        // 粗分层（5~8个明显色带，比大理石宽得多）
+        const bigLayers=7
+        for(let i=0;i<bigLayers;i++){
+          const t=i/bigLayers
           const y=t*ch
-          const layerH=ch/slayers*(0.8+Math.sin(i*2.3)*.4)
-          // 每层颜色略有差异
-          const variation=Math.sin(i*1.7)*.15
-          const [r1s,g1s,b1s]=hexToRgb(c1||'#c8a878')
-          const [r2s,g2s,b2s]=hexToRgb(c2||'#8b6040')
-          const mix=t+variation
-          const rc=Math.round(r1s+(r2s-r1s)*Math.max(0,Math.min(1,mix)))
-          const gc=Math.round(g1s+(g2s-g1s)*Math.max(0,Math.min(1,mix)))
-          const bc=Math.round(b1s+(b2s-b1s)*Math.max(0,Math.min(1,mix)))
-          ctx.fillStyle=`rgba(${rc},${gc},${bc},0.6)`
-          ctx.fillRect(0,y,cw,layerH+1)
-          // 层间裂缝线
-          if(Math.sin(i*3.1)>0.3){
-            ctx.beginPath()
-            for(let x=0;x<=cw;x+=8){
-              const yw=y+Math.sin(x/cw*Math.PI*6+i)*2
-              x===0?ctx.moveTo(x,yw):ctx.lineTo(x,yw)
-            }
-            ctx.strokeStyle=hexToRgba(c2||'#8b6040',0.25)
-            ctx.lineWidth=0.5; ctx.stroke()
-          }
+          const lh=ch/bigLayers*(0.7+Math.abs(Math.sin(i*1.9))*.6)
+          const mix=Math.min(1,Math.max(0,t+Math.sin(i*2.1)*.2))
+          const rr=Math.round(r1s+(r2s-r1s)*mix)
+          const gr=Math.round(g1s+(g2s-g1s)*mix)
+          const br=Math.round(b1s+(b2s-b1s)*mix)
+          ctx.fillStyle=`rgb(${rr},${gr},${br})`
+          // 层边缘用波形（地质层不是直线）
+          ctx.beginPath()
+          const pts=[]
+          for(let x=0;x<=cw;x+=6){pts.push([x,y+Math.sin(x/cw*Math.PI*3+i*1.3)*8+Math.sin(x/cw*Math.PI*7+i)*3])}
+          pts.forEach(([x,py],idx)=>idx===0?ctx.moveTo(x,py):ctx.lineTo(x,py))
+          ctx.lineTo(cw,y+lh); ctx.lineTo(0,y+lh); ctx.closePath(); ctx.fill()
+          // 明显层间裂缝（比原版更粗）
+          ctx.beginPath()
+          pts.forEach(([x,py],idx)=>idx===0?ctx.moveTo(x,py):ctx.lineTo(x,py))
+          ctx.strokeStyle=hexToRgba(c2||'#7a4820',0.5); ctx.lineWidth=1.5; ctx.stroke()
+        }
+        // 砂粒噪点（纯粹随机小点，区别于花岗岩的矿物椭圆）
+        const rng_s=mulberry32(55)
+        for(let i=0;i<cw*ch/40;i++){
+          const sx=rng_s()*cw, sy=rng_s()*ch
+          ctx.fillStyle=`rgba(${Math.round(rng_s()*60+160)},${Math.round(rng_s()*40+100)},${Math.round(rng_s()*30+50)},${(rng_s()*.3+.05).toFixed(2)})`
+          ctx.fillRect(sx,sy,1,1)
         }
         break
       }
       case 'obsidian':{
-        // 黑曜石：深黑底+玻璃光泽+细纹
-        fill(c1||'#0a0808')
-        // 玻璃状高光（模拟光线折射）
-        const og1=ctx.createLinearGradient(0,0,cw,ch)
-        og1.addColorStop(0,hexToRgba(c2||'#3a3060',0.35))
-        og1.addColorStop(0.3,'rgba(255,255,255,0.05)')
-        og1.addColorStop(0.5,hexToRgba(c2||'#3a3060',0.08))
-        og1.addColorStop(0.7,'rgba(255,255,255,0.03)')
-        og1.addColorStop(1,hexToRgba(c2||'#1a0818',0.4))
-        ctx.fillStyle=og1; ctx.fillRect(0,0,cw,ch)
-        // 流动细纹
-        for(let i=0;i<20;i++){
-          const seed=i*73.1
-          ctx.beginPath()
-          const startX=Math.sin(seed)*cw*.5+cx
-          const startY=Math.cos(seed)*ch*.5+cy
-          ctx.moveTo(startX,startY)
-          for(let s=0;s<60;s++){
-            const angle=seed+s*.15+Math.sin(s*.3+seed)*0.8
-            ctx.lineTo(
-              startX+Math.cos(angle)*s*(rx/60),
-              startY+Math.sin(angle)*s*(ry/60)
-            )
+        // 黑曜石：贝壳状断口（同心弧形纹）+强镜面反光，无方向性脉络
+        fill(c1||'#080608')
+        // 贝壳状断口：以断裂点为圆心的弧形纹（obsidian特有）
+        const fracturePts=[[cx*.7,cy*.6],[cx*1.2,cy*1.3],[cx*.5,cy*1.1]]
+        fracturePts.forEach(([fx,fy])=>{
+          for(let r=10;r<Math.max(rx,ry)*1.4;r+=Math.max(rx,ry)*0.06+r*0.04){
+            ctx.beginPath(); ctx.arc(fx,fy,r,0,Math.PI*2)
+            ctx.strokeStyle=hexToRgba(c2||'#4030a0',Math.max(0.01,0.12-r/Math.max(rx,ry)*0.1))
+            ctx.lineWidth=0.8; ctx.stroke()
           }
-          ctx.strokeStyle=hexToRgba(c2||'#6050a0',Math.abs(Math.sin(seed))*.08+.02)
-          ctx.lineWidth=0.5; ctx.stroke()
-        }
-        // 镜面反光斑
-        const og2=ctx.createRadialGradient(cx*.4,cy*.35,0,cx*.4,cy*.35,safeR(Math.min(rx,ry)*.4))
-        og2.addColorStop(0,'rgba(255,255,255,0.12)')
-        og2.addColorStop(0.5,'rgba(255,255,255,0.03)')
-        og2.addColorStop(1,'rgba(0,0,0,0)')
-        ctx.fillStyle=og2; ctx.fillRect(0,0,cw,ch)
+        })
+        // 强镜面：大面积高光（黑曜石最显著特征）
+        const oReflect=ctx.createLinearGradient(0,0,cw*.6,ch*.5)
+        oReflect.addColorStop(0,'rgba(255,255,255,0.18)')
+        oReflect.addColorStop(0.2,'rgba(255,255,255,0.06)')
+        oReflect.addColorStop(0.4,'rgba(255,255,255,0)')
+        ctx.fillStyle=oReflect; ctx.fillRect(0,0,cw,ch)
+        // 紫色/蓝色内部光（天然黑曜石的彩虹晕）
+        const oIris=ctx.createRadialGradient(cx*.6,cy*.5,0,cx*.6,cy*.5,safeR(Math.max(rx,ry)*.7))
+        oIris.addColorStop(0,hexToRgba(c2||'#4030a0',0.2))
+        oIris.addColorStop(0.5,hexToRgba(c2||'#4030a0',0.06))
+        oIris.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=oIris; ctx.fillRect(0,0,cw,ch)
+        // 锋利边缘高光点
+        const oSpec=ctx.createRadialGradient(cx*.35,cy*.3,0,cx*.35,cy*.3,safeR(Math.min(rx,ry)*.2))
+        oSpec.addColorStop(0,'rgba(255,255,255,0.35)'); oSpec.addColorStop(1,'rgba(0,0,0,0)')
+        ctx.fillStyle=oSpec; ctx.fillRect(0,0,cw,ch)
         break
       }
       case 'glow':{
