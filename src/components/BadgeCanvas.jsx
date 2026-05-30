@@ -228,6 +228,264 @@ function drawShape(ctx, layer, isSelected, defaultX=0, defaultY=0) {
   ctx.restore()
 }
 
+// ─── 边框纹路 ───
+function drawBorderPattern(ctx, cx, cy, R1, R2, rot, config) {
+  const color = config.borderPatternColor ?? 'rgba(0,0,0,0.35)'
+  const opacity = config.borderPatternOpacity ?? 0.7
+  ctx.globalAlpha = opacity
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+
+  // 获取gap中线的六边形顶点
+  const midRx = (R1.rx + R2.rx) / 2, midRy = (R1.ry + R2.ry) / 2
+  const gapW = R1.rx - R2.rx  // gap宽度
+  const pts1 = hexPoints(cx, cy, R1.rx, R1.ry, rot)  // 外边
+  const pts2 = hexPoints(cx, cy, R2.rx, R2.ry, rot)  // 内边
+  const ptsMid = hexPoints(cx, cy, midRx, midRy, rot) // 中线
+
+  // 沿六边形6条边采样插值
+  function samplePerimeter(R, totalSamples) {
+    const pts = hexPoints(cx, cy, R.rx, R.ry, rot)
+    const result = []
+    for (let s = 0; s < 6; s++) {
+      const [ax, ay] = pts[s], [bx, by] = pts[(s+1)%6]
+      const segs = Math.floor(totalSamples / 6)
+      for (let i = 0; i < segs; i++) {
+        const t = i / segs
+        result.push({ x: ax+(bx-ax)*t, y: ay+(by-ay)*t, side: s, t })
+      }
+    }
+    return result
+  }
+
+  // 法线方向（每条边向内）
+  function sideNormal(s, inward=true) {
+    const pts = hexPoints(cx, cy, 1, 1, rot)
+    const [ax,ay]=pts[s],[bx,by]=pts[(s+1)%6]
+    const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy)
+    const nx=-dy/len, ny=dx/len // 左法线（指向六边形内侧）
+    return inward ? [nx,ny] : [-nx,-ny]
+  }
+
+  switch(config.borderPattern) {
+
+    case 'ticks': {
+      // 刻度线纹：外边密集小刻度+内边大刻度，精密仪器感
+      ctx.lineWidth = 0.8
+      const samples = samplePerimeter(R2, 360)
+      samples.forEach(({x, y, side, t}, i) => {
+        const [nx, ny] = sideNormal(side)
+        const isMajor = i % 5 === 0
+        const tickLen = isMajor ? gapW * 0.55 : gapW * 0.28
+        ctx.beginPath()
+        ctx.moveTo(x - nx*gapW*0.1, y - ny*gapW*0.1)
+        ctx.lineTo(x - nx*gapW*0.1 + nx*tickLen, y - ny*gapW*0.1 + ny*tickLen)
+        ctx.lineWidth = isMajor ? 1.2 : 0.6
+        ctx.stroke()
+      })
+      // 中间细线
+      ctx.lineWidth = 0.5; ctx.globalAlpha = opacity * 0.4
+      ctx.beginPath()
+      ptsMid.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.closePath(); ctx.stroke()
+      break
+    }
+
+    case 'circuit': {
+      // 电路板走线纹：90°折角走线+焊点
+      const rng = mulberry32(42)
+      ctx.lineWidth = 1
+      // 每条边画1~2段电路走线
+      for (let s = 0; s < 6; s++) {
+        const [nx, ny] = sideNormal(s)
+        const [ax,ay]=pts1[s],[bx,by]=pts1[(s+1)%6]
+        const segs = 3
+        for (let i = 0; i < segs; i++) {
+          const t1 = (i + rng()*0.3 + 0.1)/segs, t2 = t1 + 0.12 + rng()*0.08
+          if (t2 > 1) continue
+          const startX=ax+(bx-ax)*t1, startY=ay+(by-ay)*t1
+          const midX=ax+(bx-ax)*(t1+t2)/2, midY=ay+(by-ay)*(t1+t2)/2
+          const endX=ax+(bx-ax)*t2, endY=ay+(by-ay)*t2
+          const inset = gapW*(0.2+rng()*0.4)
+          // L形走线
+          ctx.beginPath()
+          ctx.moveTo(startX, startY)
+          ctx.lineTo(startX + nx*inset, startY + ny*inset)
+          ctx.lineTo(endX + nx*inset, endY + ny*inset)
+          ctx.lineTo(endX, endY)
+          ctx.stroke()
+          // 焊点
+          ;[[startX,startY],[endX,endY],[startX+nx*inset,startY+ny*inset],[endX+nx*inset,endY+ny*inset]].forEach(([px,py])=>{
+            ctx.beginPath(); ctx.arc(px,py,1.8,0,Math.PI*2); ctx.fill()
+          })
+        }
+      }
+      break
+    }
+
+    case 'knurling': {
+      // 滚花纹：交叉斜线菱形网格，工业防滑感
+      ctx.lineWidth = 0.7
+      const spacing = gapW * 0.4
+      // 两组对角线（+45° 和 -45°）
+      ;[1,-1].forEach(dir => {
+        for (let s = 0; s < 6; s++) {
+          const [ax,ay]=pts1[s],[bx,by]=pts1[(s+1)%6]
+          const [nx,ny]=sideNormal(s)
+          const edgeLen = Math.hypot(bx-ax, by-ay)
+          const steps = Math.ceil(edgeLen / spacing)
+          for (let i = 0; i < steps; i++) {
+            const t = i/steps
+            const ex=ax+(bx-ax)*t, ey=ay+(by-ay)*t
+            // 沿边方向的切线
+            const tx2=(bx-ax)/edgeLen, ty2=(by-ay)/edgeLen
+            ctx.beginPath()
+            ctx.moveTo(ex + (nx-tx2*dir)*0.5, ey + (ny-ty2*dir)*0.5)
+            ctx.lineTo(ex + (nx+tx2*dir)*gapW + (tx2*dir)*spacing*0.5, ey + (ny+ty2*dir)*gapW + (ty2*dir)*spacing*0.5)
+            ctx.stroke()
+          }
+        }
+      })
+      break
+    }
+
+    case 'dashed': {
+      // 断点虚线纹：雷达扫描/UI加载圈感
+      // 外边：长短交替虚线
+      const pts_inner = hexPoints(cx, cy, R2.rx*1.02, R2.ry*1.02, rot)
+      const pts_outer = hexPoints(cx, cy, R1.rx*0.98, R1.ry*0.98, rot)
+      ;[[pts_outer, 1.5],[pts_inner, 0.8]].forEach(([pts, lw]) => {
+        ctx.lineWidth = lw
+        ctx.beginPath()
+        let totalLen = 0
+        const path = []
+        for (let s = 0; s < 6; s++) {
+          const [ax,ay]=pts[s],[bx,by]=pts[(s+1)%6]
+          path.push({ax,ay,bx,by,len:Math.hypot(bx-ax,by-ay)})
+          totalLen += Math.hypot(bx-ax,by-ay)
+        }
+        // 画虚线：长段(12px)-空(4px)-短段(4px)-空(4px)
+        let drawn = 0
+        const dashes = [12,4,4,4]
+        let dashIdx = 0, dashRem = dashes[0], drawing = true
+        path.forEach(({ax,ay,bx,by,len}) => {
+          let seg = 0
+          while (seg < len) {
+            const step = Math.min(dashRem, len - seg)
+            const t1 = seg/len, t2 = (seg+step)/len
+            const x1=ax+(bx-ax)*t1, y1=ay+(by-ay)*t1
+            const x2=ax+(bx-ax)*t2, y2=ay+(by-ay)*t2
+            if (drawing) { ctx.moveTo(x1,y1); ctx.lineTo(x2,y2) }
+            seg += step; dashRem -= step
+            if (dashRem <= 0) { dashIdx=(dashIdx+1)%dashes.length; dashRem=dashes[dashIdx]; drawing=!drawing }
+          }
+        })
+        ctx.stroke()
+      })
+      // 中线点阵
+      ctx.globalAlpha = opacity * 0.6
+      samplePerimeter({rx:midRx,ry:midRy}, 72).filter((_,i)=>i%3===0).forEach(({x,y})=>{
+        ctx.beginPath(); ctx.arc(x,y,1.2,0,Math.PI*2); ctx.fill()
+      })
+      break
+    }
+
+    case 'greek_key': {
+      // 希腊回纹：沿gap绘制方格折叠纹
+      ctx.lineWidth = 1
+      const step = gapW * 0.55
+      for (let s = 0; s < 6; s++) {
+        const [ax,ay]=pts2[s],[bx,by]=pts2[(s+1)%6]
+        const [nx,ny]=sideNormal(s)
+        const edgeLen=Math.hypot(bx-ax,by-ay)
+        const tx=(bx-ax)/edgeLen, ty=(by-ay)/edgeLen
+        const units=Math.floor(edgeLen/(step*2))
+        for(let u=0;u<units;u++){
+          const base=((u+0.5)*2*step)/edgeLen
+          const ox=ax+tx*base*edgeLen, oy=ay+ty*base*edgeLen
+          // 回字形：外→内→沿→内→外
+          ctx.beginPath()
+          ctx.moveTo(ox,oy)
+          ctx.lineTo(ox+nx*step, oy+ny*step)
+          ctx.lineTo(ox+nx*step+tx*step, oy+ny*step+ty*step)
+          ctx.lineTo(ox+nx*step*0.5+tx*step, oy+ny*step*0.5+ty*step)
+          ctx.lineTo(ox+nx*step*0.5+tx*step*1.5, oy+ny*step*0.5+ty*step*1.5)
+          ctx.lineTo(ox+nx*step*0+tx*step*1.5, oy+ny*step*0+ty*step*1.5)
+          ctx.stroke()
+        }
+      }
+      break
+    }
+
+    case 'rivets': {
+      // 钉头纹：等距铆钉圆点，蒸汽朋克感
+      const rivetR = gapW * 0.28
+      const rivetSpacing = gapW * 2.2
+      samplePerimeter({rx:midRx,ry:midRy}, Math.round(
+        hexPoints(cx,cy,midRx,midRy,rot).reduce((acc,p,i,arr)=>acc+Math.hypot((arr[(i+1)%6][0]-p[0]),(arr[(i+1)%6][1]-p[1])),0)/rivetSpacing
+      )).forEach(({x,y})=>{
+        // 铆钉本体（圆圈+中心亮点）
+        ctx.beginPath(); ctx.arc(x,y,rivetR,0,Math.PI*2)
+        ctx.lineWidth=1.2; ctx.stroke()
+        ctx.beginPath(); ctx.arc(x,y,rivetR*0.4,0,Math.PI*2); ctx.fill()
+      })
+      break
+    }
+
+    case 'rope': {
+      // 绳纹：双股螺旋交织，沿中线绕行
+      ctx.lineWidth = gapW * 0.18
+      ctx.lineCap = 'round'
+      const samples = samplePerimeter({rx:midRx,ry:midRy}, 240)
+      ;[0, Math.PI].forEach(phase => {
+        ctx.beginPath()
+        samples.forEach(({x,y,side,t},i)=>{
+          const [nx,ny]=sideNormal(side)
+          const wave=Math.sin(i/240*Math.PI*24+phase)*gapW*0.22
+          const px=x+nx*wave, py=y+ny*wave
+          i===0?ctx.moveTo(px,py):ctx.lineTo(px,py)
+        })
+        ctx.globalAlpha = opacity * 0.6; ctx.stroke()
+      })
+      break
+    }
+
+    case 'scrollwork': {
+      // 巴洛克卷草纹：S形涡卷，优雅古典
+      ctx.lineWidth = 0.9; ctx.lineCap = 'round'
+      for (let s = 0; s < 6; s++) {
+        const [ax,ay]=ptsMid[s],[bx,by]=ptsMid[(s+1)%6]
+        const [nx,ny]=sideNormal(s)
+        const edgeLen=Math.hypot(bx-ax,by-ay)
+        const tx=(bx-ax)/edgeLen, ty=(by-ay)/edgeLen
+        const scrolls=Math.floor(edgeLen/(gapW*2.5))
+        for(let u=0;u<scrolls;u++){
+          const t=(u+0.5)/scrolls
+          const ox=ax+tx*t*edgeLen, oy=ay+ty*t*edgeLen
+          const r=gapW*0.3
+          // S形卷草（两个相对方向的半圆）
+          ;[-1,1].forEach((dir,i)=>{
+            ctx.beginPath()
+            ctx.arc(
+              ox+(nx*dir+tx*(i?0.5:-0.5))*r,
+              oy+(ny*dir+ty*(i?0.5:-0.5))*r,
+              r, dir>0?Math.PI:0, dir>0?0:Math.PI, dir<0
+            )
+            ctx.stroke()
+          })
+          // 叶片小三角
+          ctx.beginPath()
+          ctx.moveTo(ox,oy)
+          ctx.lineTo(ox+nx*r*.6+tx*r*.3, oy+ny*r*.6+ty*r*.3)
+          ctx.lineTo(ox-tx*r*.3, oy-ty*r*.3)
+          ctx.closePath(); ctx.globalAlpha=opacity*0.4; ctx.fill()
+          ctx.globalAlpha=opacity
+        }
+      }
+      break
+    }
+  }
+}
+
 const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId, onLayerChange }, ref) {
   const canvasRef = useRef(null)
   const hexW = config.hexW ?? 1228

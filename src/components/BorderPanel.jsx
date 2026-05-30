@@ -90,6 +90,43 @@ export default function BorderPanel({ config, onChange, onApplyTemplate }) {
         )}
       </div>
 
+      {/* 边框纹路 */}
+      <div className={s.section}>
+        <div className={s.title}>间距带纹路</div>
+        <Row label="纹路">
+          <select value={config.borderPattern ?? 'none'}
+            onChange={e => set('borderPattern', e.target.value)}>
+            <option value="none">无</option>
+            <optgroup label="── 科幻 / 工业 ──">
+              <option value="ticks">刻度线纹</option>
+              <option value="circuit">电路板走线</option>
+              <option value="knurling">滚花菱形纹</option>
+              <option value="dashed">断点虚线纹</option>
+            </optgroup>
+            <optgroup label="── 神秘 / 古典 ──">
+              <option value="greek_key">希腊回纹</option>
+              <option value="rivets">铆钉纹</option>
+              <option value="rope">绳纹</option>
+              <option value="scrollwork">巴洛克卷草</option>
+            </optgroup>
+          </select>
+        </Row>
+        {config.borderPattern && config.borderPattern !== 'none' && <>
+          <Row label="纹路色">
+            <input type="color"
+              value={config.borderPatternColor ?? '#000000'}
+              onChange={e => set('borderPatternColor', e.target.value)} />
+            <span className={s.hexLabel}>{config.borderPatternColor ?? '#000000'}</span>
+          </Row>
+          <Row label="透明度">
+            <input type="range" min="0" max="1" step="0.05"
+              value={config.borderPatternOpacity ?? 0.7}
+              onChange={e => set('borderPatternOpacity', +e.target.value)} />
+            <span className={s.val}>{Math.round((config.borderPatternOpacity ?? 0.7)*100)}%</span>
+          </Row>
+        </>}
+      </div>
+
       {/* 内细线 */}
       <div className={s.section}>
         <div className={s.title}>内细线</div>
