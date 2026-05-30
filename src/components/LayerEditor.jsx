@@ -3,10 +3,8 @@ import s from './LayerEditor.module.css'
 
 const BG_TYPES = [
   { value: 'stars',           label: '⭐ 星空' },
-  { value: 'watercolor',      label: '🎨 扎染' },
   { value: 'cyberpunk',       label: '🌆 赛博朋克霓虹' },
   { value: 'fog',             label: '🌫 云雾/烟雾' },
-  { value: 'glow',            label: '✨ 光晕 Glow' },
   { group: '── 石纹 ──' },
   { value: 'marble',          label: '🪨 大理石' },
   { value: 'granite',         label: '⚫ 花岗岩' },

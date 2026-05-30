@@ -383,59 +383,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
       case 'pattern_hex':{fill(c1);const hs=layer.patternSize??20;ctx.strokeStyle=c2;ctx.lineWidth=1.5;for(let row=-2;row<ch/hs+2;row++){for(let col=-2;col<cw/(hs*1.732)+2;col++){const hx=col*hs*1.732+(row%2)*hs*.866,hy=row*hs*1.5;ctx.beginPath();for(let k=0;k<6;k++){const ka=(Math.PI/3)*k-Math.PI/6;k===0?ctx.moveTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka)):ctx.lineTo(hx+hs*Math.cos(ka),hy+hs*Math.sin(ka))}ctx.closePath();ctx.stroke()}};break}
       case 'pattern_stripe':{fill(c1);const sz=layer.patternSize??20;ctx.fillStyle=c2;for(let x=-ch;x<cw+ch;x+=sz*2){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+sz,0);ctx.lineTo(x+sz-ch,ch);ctx.lineTo(x-ch,ch);ctx.closePath();ctx.fill()};break}
       case 'stars':{fill(c1);const rng=mulberry32(42);for(let i=0;i<140;i++){ctx.beginPath();ctx.arc(rng()*cw,rng()*ch,rng()*1.8+.4,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${(rng()*.5+.4).toFixed(2)})`;ctx.fill()};break}
-      case 'watercolor':{
-        // 扎染（Tie-dye / Shibori）：同心环+折叠辐射纹
-        fill(c1)
-        const [r1c,g1c,b1c]=hexToRgb(c1), [r2c,g2c,b2c]=hexToRgb(c2)
-        const rng1=mulberry32(77)
-        // 多个扎染中心点
-        const centers=[
-          [cx, cy],
-          [cx+rx*0.38, cy-ry*0.3],
-          [cx-rx*0.35, cy+ry*0.25],
-          [cx+rx*0.15, cy+ry*0.42],
-        ]
-        centers.forEach(([pcx,pcy],ci)=>{
-          const maxR=safeR(Math.max(rx,ry)*(0.55+ci*0.1))
-          const ringCount=8+ci*2
-          for(let r=0;r<ringCount;r++){
-            const t=r/ringCount
-            const innerR=maxR*t
-            const outerR=maxR*(t+1/ringCount)
-            // 颜色在c1/c2之间交替+混色
-            const mix=(r%2===0)?t:1-t
-            const [rr,gr,br]=[
-              Math.round(r1c+(r2c-r1c)*mix),
-              Math.round(g1c+(g2c-g1c)*mix),
-              Math.round(b1c+(b2c-b1c)*mix),
-            ]
-            const alpha=0.55-t*0.15
-            const rg=ctx.createRadialGradient(pcx,pcy,innerR,pcx,pcy,outerR)
-            rg.addColorStop(0,`rgba(${rr},${gr},${br},${alpha})`)
-            rg.addColorStop(0.5,`rgba(${rr},${gr},${br},${alpha*0.7})`)
-            rg.addColorStop(1,`rgba(${rr},${gr},${br},0)`)
-            ctx.fillStyle=rg; ctx.fillRect(0,0,cw,ch)
-          }
-        })
-        // 折叠纹（辐射状细线，模拟布料折叠印）
-        const lineCount=24
-        for(let i=0;i<lineCount;i++){
-          const angle=(Math.PI*2/lineCount)*i
-          const len=Math.max(rx,ry)*1.1
-          ctx.beginPath()
-          ctx.moveTo(cx,cy)
-          ctx.lineTo(cx+Math.cos(angle)*len, cy+Math.sin(angle)*len)
-          const t=i/lineCount
-          const [rr,gr,br]=[Math.round(r1c+(r2c-r1c)*t),Math.round(g1c+(g2c-g1c)*t),Math.round(b1c+(b2c-b1c)*t)]
-          ctx.strokeStyle=`rgba(${rr},${gr},${br},0.07)`
-          ctx.lineWidth=1.5; ctx.stroke()
-        }
-        // 全局柔化叠层
-        const sg=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)))
-        sg.addColorStop(0,hexToRgba(c1,0.12)); sg.addColorStop(1,hexToRgba(c2,0.08))
-        ctx.fillStyle=sg; ctx.fillRect(0,0,cw,ch)
-        break
-      }
+
       case 'cyberpunk':{
         // 赛博朋克霓虹：深色底+霓虹扫光+网格线
         fill(c1||'#050510')
@@ -673,29 +621,7 @@ const BadgeCanvas = forwardRef(function BadgeCanvas({ config, layers, selectedId
         ctx.fillStyle=oSpec; ctx.fillRect(0,0,cw,ch)
         break
       }
-      case 'glow':{
-        // 光晕：中心强光+多色光圈
-        fill(c1||'#0a0818')
-        // 主光晕
-        const gg=ctx.createRadialGradient(cx,cy,0,cx,cy,safeR(Math.max(rx,ry)*.9))
-        gg.addColorStop(0,hexToRgba(c2||'#ffffff',0.35))
-        gg.addColorStop(0.3,hexToRgba(c2||'#ffffff',0.1))
-        gg.addColorStop(0.6,hexToRgba(c2||'#ffffff',0.03))
-        gg.addColorStop(1,'rgba(0,0,0,0)')
-        ctx.fillStyle=gg; ctx.fillRect(0,0,cw,ch)
-        // 光圈
-        for(let i=1;i<=3;i++){
-          const gr=safeR(Math.max(rx,ry)*i*.28)
-          ctx.beginPath(); ctx.arc(cx,cy,gr,0,Math.PI*2)
-          ctx.strokeStyle=hexToRgba(c2||'#ffffff', 0.12/i)
-          ctx.lineWidth=i*3; ctx.stroke()
-        }
-        // 边缘暗角
-        const vg=ctx.createRadialGradient(cx,cy,Math.min(rx,ry)*.5,cx,cy,Math.max(rx,ry)*1.2)
-        vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.5)')
-        ctx.fillStyle=vg; ctx.fillRect(0,0,cw,ch)
-        break
-      }
+
       case 'image':{if(layer.image){const img=layer.image;const sc=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);ctx.drawImage(img,(cw-img.naturalWidth*sc)/2,(ch-img.naturalHeight*sc)/2,img.naturalWidth*sc,img.naturalHeight*sc)};break}
     }
     ctx.restore()
